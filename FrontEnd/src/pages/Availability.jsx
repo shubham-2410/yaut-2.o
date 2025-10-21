@@ -7,6 +7,7 @@ import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 function Availability() {
   const [availability, setAvailability] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // 🔐 Read token from localStorage
@@ -15,6 +16,8 @@ function Availability() {
   useEffect(() => {
     const fetchAvailability = async () => {
       try {
+        setLoading(true);
+
         // 📅 Get today's date and 5 days later
         const today = new Date();
         const fiveDaysLater = new Date();
@@ -23,7 +26,7 @@ function Availability() {
         const startDate = today.toISOString().split("T")[0];
         const endDate = fiveDaysLater.toISOString().split("T")[0];
 
-        // For heading (Oct 20 - Oct 25)
+        // For heading (Oct 21 - Oct 26)
         const weekLabel = `${today.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
@@ -36,9 +39,9 @@ function Availability() {
 
         // 🔥 Fetch from backend
         const res = await getAvailabilitySummary(startDate, endDate, token);
+        console.log("Availability Response:", res);
 
         if (res?.success && res?.yachts) {
-          // Transform backend data into frontend-friendly structure
           const formatted = res.yachts.map((y) => ({
             yacht: y.yachtName,
             email: `${y.yachtName.toLowerCase().replace(/\s/g, "")}@gmail.com`,
@@ -64,10 +67,12 @@ function Availability() {
         }
       } catch (err) {
         console.error("Failed to fetch availability:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchAvailability();
+    if (token) fetchAvailability();
   }, [token]);
 
   const handleDayClick = (yachtName, day) => {
@@ -92,8 +97,14 @@ function Availability() {
         </button>
       </div>
 
-      {/* Yacht Availability Cards */}
-      {availability.length === 0 ? (
+      {/* Loader */}
+      {loading ? (
+        <div className="text-center mt-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      ) : availability.length === 0 ? (
         <div className="text-center text-muted mt-5">No yachts available</div>
       ) : (
         availability.map((yacht, index) => (

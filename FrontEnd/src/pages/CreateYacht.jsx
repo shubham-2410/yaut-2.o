@@ -1,7 +1,6 @@
-// src/pages/CreateYacht.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios"; // make sure axios is installed
+import { createYacht } from "../services/operations/yautAPI";
 
 function CreateYacht() {
   const navigate = useNavigate();
@@ -10,6 +9,7 @@ function CreateYacht() {
     capacity: "",
     runningCost: "",
     price: "",
+    maxSellingPrice: "",
     sellingPrice: "",
     photos: [],
     status: "active",
@@ -25,8 +25,7 @@ function CreateYacht() {
 
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
-    const photoURLs = files.map((file) => URL.createObjectURL(file));
-    setYacht((prev) => ({ ...prev, photos: photoURLs }));
+    setYacht((prev) => ({ ...prev, photos: files })); // keep File objects
   };
 
   const handleSubmit = async (e) => {
@@ -35,28 +34,23 @@ function CreateYacht() {
     setError("");
 
     try {
-      // Replace with your backend endpoint
-      const formData = new FormData();
-      formData.append("name", yacht.name);
-      formData.append("capacity", yacht.capacity);
-      formData.append("runningCost", yacht.runningCost);
-      formData.append("price", yacht.price);
-      formData.append("sellingPrice", yacht.sellingPrice);
-      formData.append("status", yacht.status);
+      const token = localStorage.getItem("authToken");
 
-      // Append photos
-      yacht.photos.forEach((photo, index) => {
-        formData.append("photos", photo);
-      });
+      // Ensure numeric values are numbers
+      const payload = {
+        ...yacht,
+        capacity: Number(yacht.capacity),
+        runningCost: Number(yacht.runningCost),
+        price: Number(yacht.price),
+        maxSellingPrice: Number(yacht.maxSellingPrice),
+        sellingPrice: Number(yacht.sellingPrice),
+      };
 
-      await axios.post("/api/yachts", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await createYacht(payload, token);
 
       alert("✅ Yacht created successfully!");
-      navigate("/admin"); // redirect to admin dashboard or yacht list
+      navigate("/admin"); // redirect to admin dashboard
     } catch (err) {
-      console.error(err);
       setError(err.response?.data?.message || "Failed to create yacht");
     } finally {
       setLoading(false);
@@ -75,7 +69,6 @@ function CreateYacht() {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <form className="row g-3" onSubmit={handleSubmit}>
-        {/* Yacht Name */}
         <div className="col-12">
           <label className="form-label fw-bold">Yacht Name</label>
           <input
@@ -84,13 +77,11 @@ function CreateYacht() {
             className="form-control border border-dark text-dark"
             value={yacht.name}
             onChange={handleChange}
-            placeholder="Enter yacht name"
             required
           />
         </div>
 
-        {/* Capacity */}
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
           <label className="form-label fw-bold">Capacity</label>
           <input
             type="number"
@@ -98,13 +89,11 @@ function CreateYacht() {
             className="form-control border border-dark text-dark"
             value={yacht.capacity}
             onChange={handleChange}
-            placeholder="Enter max pax"
             required
           />
         </div>
 
-        {/* Running Cost */}
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
           <label className="form-label fw-bold">Running Cost</label>
           <input
             type="number"
@@ -112,13 +101,11 @@ function CreateYacht() {
             className="form-control border border-dark text-dark"
             value={yacht.runningCost}
             onChange={handleChange}
-            placeholder="Enter running cost"
             required
           />
         </div>
 
-        {/* Price */}
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
           <label className="form-label fw-bold">Price</label>
           <input
             type="number"
@@ -126,13 +113,23 @@ function CreateYacht() {
             className="form-control border border-dark text-dark"
             value={yacht.price}
             onChange={handleChange}
-            placeholder="Enter price"
             required
           />
         </div>
 
-        {/* Selling Price */}
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Max Selling Price</label>
+          <input
+            type="number"
+            name="maxSellingPrice"
+            className="form-control border border-dark text-dark"
+            value={yacht.maxSellingPrice}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="col-md-6">
           <label className="form-label fw-bold">Selling Price</label>
           <input
             type="number"
@@ -140,13 +137,11 @@ function CreateYacht() {
             className="form-control border border-dark text-dark"
             value={yacht.sellingPrice}
             onChange={handleChange}
-            placeholder="Enter selling price"
             required
           />
         </div>
 
-        {/* Status */}
-        <div className="col-12 col-md-6">
+        <div className="col-md-6">
           <label className="form-label fw-bold">Status</label>
           <select
             name="status"
@@ -159,25 +154,11 @@ function CreateYacht() {
           </select>
         </div>
 
-        {/* Photo Upload */}
         <div className="col-12">
           <label className="form-label fw-bold">Upload Photos</label>
-          <input
-            type="file"
-            className="form-control"
-            multiple
-            onChange={handlePhotoUpload}
-          />
-          <div className="d-flex flex-wrap mt-2">
-            {yacht.photos.map((url, index) => (
-              <div key={index} className="me-2 mb-2 text-center">
-                <img src={url} alt={`yacht-${index}`} width="100" className="mb-1" />
-              </div>
-            ))}
-          </div>
+          <input type="file" multiple className="form-control" onChange={handlePhotoUpload} />
         </div>
 
-        {/* Submit Button */}
         <div className="col-12 text-center">
           <button type="submit" className="btn btn-primary w-100" disabled={loading}>
             {loading ? "Creating..." : "Create Yacht"}

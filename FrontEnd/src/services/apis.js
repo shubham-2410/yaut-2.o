@@ -23,5 +23,13 @@ export const transaction = {
 };
 
 export const availability = {
-  GET_AVAILABILITY_SUMMARY: `${BASE_URL}/availability/summary`,
+  GET_AVAILABILITY_SUMMARY: `${BASE_URL}/availability/summary/get`,
+};
+
+export const yaut = {
+  CREATE_YACHT_API: `${BASE_URL}/yacht`,
+  GET_ALL_YACHTS_API: `${BASE_URL}/yacht`,
+  GET_YACHT_BY_ID_API: (id) => `${BASE_URL}/yacht/${id}`,
+  UPDATE_YACHT_API: (id) => `${BASE_URL}/yacht/${id}`,
+  DELETE_YACHT_API: (id) => `${BASE_URL}/yacht/${id}`,
 };

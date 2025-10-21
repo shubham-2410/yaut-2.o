@@ -38,3 +38,18 @@ export const uploadToCloudinary = (folderName) => async (req, res, next) => {
     return res.status(500).json({ error: err.message });
   }
 };
+
+// Helper function to upload one file and return URL
+export const uploadFileToCloudinaryV2 = (file, folderName) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: folderName },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+    stream.end(file.buffer);
+  });
+};
+

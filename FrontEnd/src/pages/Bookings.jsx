@@ -6,13 +6,14 @@ function Bookings({ user }) {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
-
+ 
   const fetchBookings = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("authToken");
       const res = await getBookingsAPI(token);
       setBookings(res.data);
+      console.log("Bookings - ",res.data)
     } catch (err) {
       console.error("❌ Error fetching bookings:", err);
     } finally {

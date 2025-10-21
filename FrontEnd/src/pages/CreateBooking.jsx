@@ -1,27 +1,57 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createBookingAPI } from "../services/operations/bookingAPI";
 import { getCustomerByEmailAPI } from "../services/operations/customerAPI";
+import { getAllYachtsAPI } from "../services/operations/yautAPI";
 
 function CreateBooking() {
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     email: "",
-    boat: "",
+    yachtId: "",
     totalAmount: "",
     date: "",
-    duration: "",
     startTime: "",
+    endTime: "",
     numPeople: "",
   });
+
+  const [yachts, setYachts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Fetch all yachts on mount
+  useEffect(() => {
+    const fetchYachts = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await getAllYachtsAPI(token);
+        console.log("🛥️ Yachts API response:", res);
+
+        // Handle both formats: {data: [...]} or {data: {data: [...]}}
+        const yachtList = Array.isArray(res?.data?.yachts)
+          ? res.data.yachts
+          : []
+
+        console.log("✅ Parsed Yachts List:", yachtList);
+        setYachts(yachtList);
+      } catch (err) {
+        console.error("❌ Failed to fetch yachts:", err);
+        setYachts([]);
+      }
+    };
+
+    fetchYachts();
+  }, []);
+
+  // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -30,27 +60,33 @@ function CreateBooking() {
     try {
       const token = localStorage.getItem("authToken");
 
-      // Step 1: Get Customer ID by email
-      const { data: customer } = await getCustomerByEmailAPI(formData.email, token);
+      // Step 1: Get customer ID by email
+      const { data: customer } = await getCustomerByEmailAPI(
+        formData.email,
+        token
+      );
+
       if (!customer?._id) {
         setError("Customer not found. Please check the email.");
         setLoading(false);
         return;
       }
 
-      // Step 2: Prepare payload with correct field names
+      // Step 2: Prepare booking payload
       const payload = {
         customerId: customer._id,
-        employeeId: "replace_with_actual_employee_id", // TODO: get from token or UI
-        yautId: parseInt(formData.boat, 10),
+        employeeId: "replace_with_actual_employee_id", // Replace dynamically later
+        yachtId: formData.yachtId,
         date: formData.date,
-        duration: formData.duration,
         startTime: formData.startTime,
+        endTime: formData.endTime,
         quotedAmount: parseFloat(formData.totalAmount),
         numPeople: parseInt(formData.numPeople, 10),
       };
 
-      // Step 3: Call booking API
+      console.log("📦 Booking Payload:", payload);
+
+      // Step 3: Create booking
       const res = await createBookingAPI(payload, token);
       console.log("✅ Booking created:", res.data);
 
@@ -59,9 +95,10 @@ function CreateBooking() {
     } catch (err) {
       console.error("❌ Error creating booking:", err);
       setError(
-        err.response?.data?.error || err.response?.data?.message || "Failed to create booking"
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to create booking"
       );
-
     } finally {
       setLoading(false);
     }
@@ -93,18 +130,27 @@ function CreateBooking() {
           />
         </div>
 
-        {/* Boat / Yaut ID */}
+        {/* Yacht Dropdown */}
         <div className="col-12">
-          <label className="form-label fw-bold">Boat (Yaut ID)</label>
-          <input
-            type="number"
-            className="form-control border border-dark text-dark"
-            name="boat"
-            value={formData.boat}
+          <label className="form-label fw-bold">Select Yacht</label>
+          <select
+            className="form-select border border-dark text-dark"
+            name="yachtId"
+            value={formData.yachtId}
             onChange={handleChange}
-            placeholder="Enter Yaut ID"
             required
-          />
+          >
+            <option value="">-- Select Yacht --</option>
+            {Array.isArray(yachts) && yachts.length > 0 ? (
+              yachts.map((yacht) => (
+                <option key={yacht.id} value={yacht.id}>
+                  {yacht.name}
+                </option>
+              ))
+            ) : (
+              <option disabled>No yachts available</option>
+            )}
+          </select>
         </div>
 
         {/* Total Amount */}
@@ -122,7 +168,7 @@ function CreateBooking() {
         </div>
 
         {/* Date */}
-        <div className="col-12 col-md-6">
+        <div className="col-12 col-md-4">
           <label className="form-label fw-bold">Date of Ride</label>
           <input
             type="date"
@@ -134,22 +180,8 @@ function CreateBooking() {
           />
         </div>
 
-        {/* Duration */}
-        <div className="col-12 col-md-6">
-          <label className="form-label fw-bold">Duration (hours)</label>
-          <input
-            type="time"
-            className="form-control border border-dark text-dark"
-            name="duration"
-            value={formData.duration}
-            onChange={handleChange}
-            placeholder="Enter duration"
-            required
-          />
-        </div>
-
         {/* Start Time */}
-        <div className="col-12 col-md-6">
+        <div className="col-12 col-md-4">
           <label className="form-label fw-bold">Start Time</label>
           <input
             type="time"
@@ -161,8 +193,21 @@ function CreateBooking() {
           />
         </div>
 
+        {/* End Time */}
+        <div className="col-12 col-md-4">
+          <label className="form-label fw-bold">End Time</label>
+          <input
+            type="time"
+            className="form-control border border-dark text-dark"
+            name="endTime"
+            value={formData.endTime}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
         {/* Number of People */}
-        <div className="col-12 col-md-6">
+        <div className="col-12 col-md-4">
           <label className="form-label fw-bold">Number of People</label>
           <input
             type="number"
@@ -175,9 +220,13 @@ function CreateBooking() {
           />
         </div>
 
-        {/* Submit Button */}
+        {/* Submit */}
         <div className="col-12 text-center">
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+          <button
+            type="submit"
+            className="btn btn-primary w-100"
+            disabled={loading}
+          >
             {loading ? "Creating..." : "Create Booking"}
           </button>
         </div>

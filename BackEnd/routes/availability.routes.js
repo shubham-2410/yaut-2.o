@@ -14,8 +14,8 @@ const router = express.Router();
 router.get("/:yachtId", authMiddleware, checkSlotAvailability);
 
 // Get availability summary for a date range
-// GET /api/yacht-availability/summary/:yachtId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-router.get("/summary", authMiddleware, getAvailabilitySummary);
+// GET /api/yacht-availability/summary?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get("/summary/get", authMiddleware, getAvailabilitySummary);
 
 /**
  * Lock a slot for a yacht

@@ -7,7 +7,7 @@ const yachtSchema = new mongoose.Schema(
         runningCost: { type: Number, required: true },
         price: { type: Number, required: true },
         sellingPrice: { type: Number, required: true },
-        photos: [String],
+        yachtPhotos: [String],
         company: {
             type: String,
             required: true

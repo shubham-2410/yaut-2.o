@@ -14,11 +14,17 @@ export const createYacht = async (req, res, next) => {
 export const getAllYachts = async (req, res, next) => {
   try {
     const yachts = await YachtModel.find({ company: req.user.company });
-    res.json({ success: true, id : yachts._id, name: yachts.name });
+    // Return array of {id, name} objects
+    const formatted = yachts.map((yacht) => ({
+      id: yacht._id,
+      name: yacht.name,
+    }));
+    res.json({ success: true, yachts: formatted });
   } catch (error) {
     next(error);
   }
 };
+
 
 // Get Yacht by ID
 export const getYachtById = async (req, res, next) => {

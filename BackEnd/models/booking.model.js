@@ -20,8 +20,9 @@ const bookingSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Transaction'
     }],
-    yautId: {
-        type: Number,
+    yachtId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Yacht', // 👈 Points to Yacht model
         required: true
     },
     date: {
@@ -30,7 +31,7 @@ const bookingSchema = new mongoose.Schema({
     },
     duration: {
         type: String,
-        required: true,
+        // required: true,
         match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Time must be in HH:MM format']
         // Example: "14:30" (24-hour format)
     },
@@ -41,6 +42,7 @@ const bookingSchema = new mongoose.Schema({
     },
     endTime: {
         type: String,
+        required: true,
         match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'End Time must be in HH:MM format']
     },
     quotedAmount: {

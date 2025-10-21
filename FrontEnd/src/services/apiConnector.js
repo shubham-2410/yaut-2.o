@@ -27,7 +27,7 @@ export const axiosInstance = axios.create({
 });
 
 export const apiConnector = (method, url, bodyData = null, headers = {}, params = null) => {
-  console.log("➡️ apiConnector called:", method, url);
+  console.log("➡️ apiConnector called:", method, url, bodyData, headers, params);
 
   const isFormData = bodyData instanceof FormData;
   const finalHeaders = { ...headers };

@@ -1,6 +1,7 @@
 import { BookingModel } from "../models/booking.model.js";
 import { CustomerModel } from "../models/customer.model.js";
 import { AvailabilityModel } from "../models/availability.model.js";
+import { checkSlotAvailability } from "./availability.controller.js";
 
 // export const createBooking = async (req, res, next) => {
 //   try {
@@ -143,7 +144,7 @@ export const updateBooking = async (req, res, next) => {
 export const getBookings = async (req, res) => {
   try {
     const bookings = await BookingModel.find({company:req.user.company})
-      .populate("customerId employeeId transactionId");
+      .populate("customerId employeeId yautId");
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ error: error.message });
