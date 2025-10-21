@@ -1,23 +1,26 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+// Pages
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import Bookings from "./pages/Bookings";
 import Collections from "./pages/Collections";
+import Availability from "./pages/Availability";
 import NotFound from "./pages/NotFound";
 import CreateCustomer from "./pages/CreateCustomer";
 import CustomerDetails from "./pages/CustomerDetails";
 import CreateEmployee from "./pages/CreateEmployee";
 import CreateBooking from "./pages/CreateBooking";
 import UpdateBooking from "./pages/UpdateBooking";
+import DayAvailability from "./pages/DayAvailability";
 
 function App() {
   const [user, setUser] = useState(null);
+
   const handleLogin = (data) => {
     // Save user + token
     setUser(data);
@@ -51,9 +54,13 @@ function App() {
 
       <Routes>
         {/* Public route */}
-        { !user &&
-         <Route path="/" element={<Login onLogin={handleLogin} user={user} />} />
-        }
+        {!user && (
+          <Route
+            path="/"
+            element={<Login onLogin={handleLogin} user={user} />}
+          />
+        )}
+
         {/* Protected routes */}
         <Route
           path="/admin"
@@ -68,7 +75,11 @@ function App() {
           path="/customer-details"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk","onsite"].includes(role) ? <CustomerDetails /> : <NotFound />}
+              {["admin", "backdesk", "onsite"].includes(role) ? (
+                <CustomerDetails />
+              ) : (
+                <NotFound />
+              )}
             </ProtectedRoute>
           }
         />
@@ -100,11 +111,42 @@ function App() {
           }
         />
 
+        {/* ✅ Availability route (admin + backdesk) */}
+        <Route
+          path="/availability"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? (
+                <Availability />
+              ) : (
+                <NotFound />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/availability/:yachtName/:date"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? (
+                <DayAvailability />
+              ) : (
+                <NotFound />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/create-customer"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? <CreateCustomer /> : <NotFound />}
+              {["admin", "backdesk"].includes(role) ? (
+                <CreateCustomer />
+              ) : (
+                <NotFound />
+              )}
             </ProtectedRoute>
           }
         />
@@ -113,7 +155,11 @@ function App() {
           path="/create-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? <CreateBooking /> : <NotFound />}
+              {["admin", "backdesk"].includes(role) ? (
+                <CreateBooking />
+              ) : (
+                <NotFound />
+              )}
             </ProtectedRoute>
           }
         />
@@ -122,13 +168,17 @@ function App() {
           path="/update-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role) ? <UpdateBooking /> : <NotFound />}
+              {["admin", "backdesk", "onsite"].includes(role) ? (
+                <UpdateBooking />
+              ) : (
+                <NotFound />
+              )}
             </ProtectedRoute>
           }
         />
 
         {/* Fallback */}
-        <Route path="*"  element={<NotFound user={user} />} />
+        <Route path="*" element={<NotFound user={user} />} />
       </Routes>
     </Router>
   );
