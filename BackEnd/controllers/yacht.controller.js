@@ -14,7 +14,7 @@ export const createYacht = async (req, res, next) => {
 export const getAllYachts = async (req, res, next) => {
   try {
     const yachts = await YachtModel.find({ company: req.user.company });
-    res.json({ success: true, yachts });
+    res.json({ success: true, id : yachts._id, name: yachts.name });
   } catch (error) {
     next(error);
   }

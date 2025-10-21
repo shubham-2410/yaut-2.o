@@ -21,3 +21,7 @@ export const transaction = {
   CREATE_TRANSACTION_API: `${BASE_URL}/transactions`,
   CREATE_WITH_BOOKING_UPDATE : `${BASE_URL}/transactions/create-with-booking-update`
 };
+
+export const availability = {
+  GET_AVAILABILITY_SUMMARY: `${BASE_URL}/availability/summary`,
+};

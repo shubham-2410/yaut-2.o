@@ -15,7 +15,7 @@ router.get("/:yachtId", authMiddleware, checkSlotAvailability);
 
 // Get availability summary for a date range
 // GET /api/yacht-availability/summary/:yachtId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-router.get("/summary/:yachtId", authMiddleware, getAvailabilitySummary);
+router.get("/summary", authMiddleware, getAvailabilitySummary);
 
 /**
  * Lock a slot for a yacht
