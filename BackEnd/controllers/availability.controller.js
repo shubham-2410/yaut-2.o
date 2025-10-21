@@ -37,44 +37,117 @@ export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime,
 };
 
 
+// export const getAvailabilitySummary = async (req, res, next) => {
+//   try {
+//     const { yachtId } = req.params;
+//     const { startDate, endDate } = req.query;
+
+//     const start = new Date(startDate);
+//     const end = new Date(endDate);
+
+//     // Get all slots for range
+//     const slots = await AvailabilityModel.find({
+//       yachtId,
+//       date: { $gte: startDate, $lte: endDate },
+//     });
+
+//     // Group by date
+//     const summary = {};
+//     slots.forEach((slot) => {
+//       if (!summary[slot.date]) summary[slot.date] = [];
+//       summary[slot.date].push(slot);
+//     });
+
+//     // Build per-day summaries
+//     const days = [];
+//     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+//       const dateStr = d.toISOString().split("T")[0];
+//       const daySlots = summary[dateStr] || [];
+//       const booked = daySlots.filter((s) => s.status === "booked").length;
+//       const totalSlots = daySlots.length;
+
+//       days.push({
+//         date: dateStr,
+//         status: booked ? "busy" : "free",
+//         booked,
+//         availableHours: 24 - booked * 2, // Example: each booking = 2h
+//       });
+//     }
+
+//     res.json({ success: true, yachtId, days });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const getAvailabilitySummary = async (req, res, next) => {
   try {
-    const { yachtId } = req.params;
     const { startDate, endDate } = req.query;
+    const { company } = req.user;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: "Start and end dates are required" });
+    }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Get all slots for range
+    // ✅ Step 1: Get all yachts for that company
+    const yachts = await YachtModel.find({ company }).select("_id name");
+    if (!yachts.length) {
+      return res.status(404).json({ success: false, message: "No yachts found for this company" });
+    }
+
+    const yachtIds = yachts.map((y) => y._id);
+
+    // ✅ Step 2: Get all slots for all yachts in date range
     const slots = await AvailabilityModel.find({
-      yachtId,
+      yachtId: { $in: yachtIds },
       date: { $gte: startDate, $lte: endDate },
     });
 
-    // Group by date
+    // ✅ Step 3: Group slots by yacht + date
     const summary = {};
     slots.forEach((slot) => {
-      if (!summary[slot.date]) summary[slot.date] = [];
-      summary[slot.date].push(slot);
+      const yachtKey = slot.yachtId.toString();
+      if (!summary[yachtKey]) summary[yachtKey] = {};
+      if (!summary[yachtKey][slot.date]) summary[yachtKey][slot.date] = [];
+      summary[yachtKey][slot.date].push(slot);
     });
 
-    // Build per-day summaries
-    const days = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split("T")[0];
-      const daySlots = summary[dateStr] || [];
-      const booked = daySlots.filter((s) => s.status === "booked").length;
-      const totalSlots = daySlots.length;
+    // ✅ Step 4: Build per-yacht summary
+    const yachtSummaries = yachts.map((yacht) => {
+      const yachtData = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split("T")[0];
+        const daySlots = summary[yacht._id]?.[dateStr] || [];
+        const booked = daySlots.filter((s) => s.status === "booked").length;
+        const locked = daySlots.filter((s) => s.status === "locked").length;
 
-      days.push({
-        date: dateStr,
-        status: booked ? "busy" : "free",
-        booked,
-        availableHours: 24 - booked * 2, // Example: each booking = 2h
-      });
-    }
+        yachtData.push({
+          date: dateStr,
+          status: booked
+            ? "busy"
+            : locked
+            ? "locked"
+            : "free",
+          bookedSlots: booked,
+          lockedSlots: locked,
+        });
+      }
+      return {
+        yachtId: yacht._id,
+        yachtName: yacht.name,
+        availability: yachtData,
+      };
+    });
 
-    res.json({ success: true, yachtId, days });
+    res.json({
+      success: true,
+      company,
+      range: { startDate, endDate },
+      yachts: yachtSummaries,
+    });
   } catch (error) {
     next(error);
   }
