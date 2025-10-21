@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 
 export const authMiddleware = (req, res, next) => {
-  console.log("I'm in")
+  // console.log("I'm in")
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
@@ -18,7 +18,7 @@ export const authMiddleware = (req, res, next) => {
     next(error);  // Pass to global handler
   }
 
-  console.log("Moving to next")
+  // console.log("Moving to next")
 };
 
 

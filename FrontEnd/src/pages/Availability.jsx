@@ -43,26 +43,24 @@ function Availability() {
 
         if (res?.success && res?.yachts) {
           const formatted = res.yachts.map((y) => ({
-            yacht: y.yachtName,
+            yachtId: y.yachtId || y._id, // fallback for _id
+            yachtName: y.yachtName,
             email: `${y.yachtName.toLowerCase().replace(/\s/g, "")}@gmail.com`,
+            // days: y.availability.map((a) => ({
+            //   day: new Date(a.date).toLocaleDateString("en-US", { weekday: "short" }),
+            //   date: new Date(a.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            //   status: a.status === "busy" ? "Busy" : a.status === "locked" ? "Locked" : "Free",
+            //   bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
+            // })),
             days: y.availability.map((a) => ({
-              day: new Date(a.date).toLocaleDateString("en-US", {
-                weekday: "short",
-              }),
-              date: new Date(a.date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              }),
-              status:
-                a.status === "busy"
-                  ? "Busy"
-                  : a.status === "locked"
-                  ? "Locked"
-                  : "Free",
-              bookedSlots: a.bookedSlots || [],
+              day: new Date(a.date).toLocaleDateString("en-US", { weekday: "short" }),
+              date: new Date(a.date).toISOString().split("T")[0], // ✅ YYYY-MM-DD
+              status: a.status === "busy" ? "Busy" : a.status === "locked" ? "Locked" : "Free",
+              bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
             })),
           }));
 
+          console.log("Formatted Availability:", formatted);
           setAvailability(formatted);
         }
       } catch (err) {
@@ -75,12 +73,43 @@ function Availability() {
     if (token) fetchAvailability();
   }, [token]);
 
-  const handleDayClick = (yachtName, day) => {
-    const formattedDate = day.date.replace(/\s+/g, "");
-    navigate(`/availability/${encodeURIComponent(yachtName)}/${formattedDate}`, {
-      state: { yachtName, day },
+  // -------------------------
+  // Handle day click
+  // -------------------------
+  // const handleDayClick = (yacht, day) => {
+  //   console.log("Inside handle day")
+  //   console.log(yacht, "   ", day);
+  //   if (!yacht || !day) {
+  //     console.error("Yacht or day data missing");
+  //     return;
+  //   }
+
+  //   // Format date to YYYY-MM-DD without spaces
+  //   const formattedDate = day.date.replace(/\s+/g, "");
+
+  //   navigate(`/availability/${encodeURIComponent(yacht.yachtName)}/${formattedDate}`, {
+  //     state: {
+  //       yachtId: yacht.yachtId,
+  //       yachtName: yacht.yachtName,
+  //       day, // full day object for DayAvailability
+  //     },
+  //   });
+  // };
+
+  const handleDayClick = (yacht, day) => {
+    if (!yacht || !day) return;
+
+    const formattedDate = day.date; // already YYYY-MM-DD
+
+    navigate(`/availability/${encodeURIComponent(yacht.yachtName)}/${formattedDate}`, {
+      state: {
+        yachtId: yacht.yachtId,
+        yachtName: yacht.yachtName,
+        day, // full day object for DayAvailability
+      },
     });
   };
+
 
   return (
     <div className="container mt-4">
@@ -112,7 +141,7 @@ function Availability() {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
-                  <h5 className="mb-1">{yacht.yacht}</h5>
+                  <h5 className="mb-1">{yacht.yachtName}</h5>
                   <small className="text-muted">{yacht.email}</small>
                 </div>
               </div>
@@ -135,14 +164,14 @@ function Availability() {
                       {yacht.days.map((d, i) => (
                         <td
                           key={i}
-                          onClick={() => handleDayClick(yacht.yacht, d)}
+                          onClick={() => handleDayClick(yacht, d)}
                           style={{ cursor: "pointer" }}
                           className={
                             d.status === "Busy"
                               ? "bg-warning text-dark"
                               : d.status === "Locked"
-                              ? "bg-secondary text-white"
-                              : "bg-success text-white"
+                                ? "bg-secondary text-white"
+                                : "bg-success text-white"
                           }
                         >
                           <strong>{d.status}</strong>

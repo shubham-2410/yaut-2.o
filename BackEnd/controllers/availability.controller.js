@@ -335,3 +335,66 @@ export const getAvailabilitySummary = async (req, res, next) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const getDayAvailability = async (req, res, next) => {
+  console.log("In Day Avail back")
+  try {
+    const { yachtId } = req.params;
+    const { date } = req.query; // expected format: YYYY-MM-DD
+
+    if (!yachtId || !date) {
+      return res
+        .status(400)
+        .json({ success: false, message: "yachtId and date are required" });
+    }
+
+    // ✅ Check if yacht exists
+    const yacht = await YachtModel.findById(yachtId).select("name");
+    if (!yacht) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Yacht not found" });
+    }
+
+    // ✅ Fetch bookings for that yacht & date
+    const bookings = await BookingModel.find({
+      yachtId,
+      date,
+      status: { $in: ["initiated", "booked"] },
+    }).select("startTime endTime status");
+
+    // ✅ Fetch locked slots from AvailabilityModel
+    const lockedSlots = await AvailabilityModel.find({
+      yachtId,
+      date,
+      status: "locked",
+    }).select("startTime endTime appliedBy");
+
+    // Format them nicely for frontend
+    const bookedSlots = bookings.map((b) => ({
+      start: b.startTime,
+      end: b.endTime,
+      status: b.status,
+    }));
+
+    const locked = lockedSlots.map((l) => ({
+      start: l.startTime,
+      end: l.endTime,
+      status: "locked",
+      appliedBy: l.appliedBy,
+    }));
+
+    // ✅ Send combined availability info
+    return res.status(200).json({
+      success: true,
+      yachtId,
+      yachtName: yacht.name,
+      date,
+      bookedSlots,
+      lockedSlots: locked,
+    });
+  } catch (error) {
+    console.error("getDayAvailability error:", error);
+    next(error);
+  }
+};

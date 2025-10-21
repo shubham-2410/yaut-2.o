@@ -24,6 +24,10 @@ export const transaction = {
 
 export const availability = {
   GET_AVAILABILITY_SUMMARY: `${BASE_URL}/availability/summary/get`,
+  GET_DAY_AVAILABILITY: (yachtId, date) =>
+    `${BASE_URL}/availability/${yachtId}?date=${date}`,
+  LOCK_SLOT: `${BASE_URL}/availability/lock`,
+  RELEASE_SLOT: `${BASE_URL}/availability/release`,
 };
 
 export const yaut = {

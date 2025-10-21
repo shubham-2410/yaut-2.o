@@ -2,6 +2,7 @@ import express from "express";
 import {
   checkSlotAvailability,
   getAvailabilitySummary,
+  getDayAvailability,
   lockSlot,
   releaseSlot,
 } from "../controllers/availability.controller.js";
@@ -11,7 +12,7 @@ const router = express.Router();
 
 // Check availability for a specific date
 // GET /api/yacht-availability/:yachtId?date=YYYY-MM-DD
-router.get("/:yachtId", authMiddleware, checkSlotAvailability);
+router.get("/:yachtId", authMiddleware, getDayAvailability);
 
 // Get availability summary for a date range
 // GET /api/yacht-availability/summary?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
