@@ -17,6 +17,7 @@ import CreateEmployee from "./pages/CreateEmployee";
 import CreateBooking from "./pages/CreateBooking";
 import UpdateBooking from "./pages/UpdateBooking";
 import DayAvailability from "./pages/DayAvailability";
+import CreateYacht from "./pages/CreateYacht";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -84,6 +85,16 @@ function App() {
           }
         />
 
+
+           <Route
+          path="/create-yacht"
+          element={
+            <ProtectedRoute user={user}>
+              {role === "admin" ? <CreateYacht /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+        
         <Route
           path="/create-employee"
           element={

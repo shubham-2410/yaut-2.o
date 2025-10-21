@@ -100,6 +100,19 @@ function Navbar({ user, onLogout }) {
                 </Link>
               </li>
             )}
+            {user?.type === "admin" && (
+  <li className="nav-item">
+    <Link
+      className="nav-link"
+      to="/create-yacht"
+      onClick={handleNavLinkClick}
+    >
+      Create Yacht
+    </Link>
+  </li>
+)}
+
+
 
             {/* Collections - Admin only */}
             {user?.type === "admin" && (
