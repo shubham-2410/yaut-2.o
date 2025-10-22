@@ -121,8 +121,8 @@ function DayAvailability() {
   const handleReleaseLock = async () => {
     try {
       document.activeElement?.blur();
-      const res = await releaseSlot( yachtId, day.date, selectedSlot.start, selectedSlot.end, token );
-      console.log("Lock response : " , res)
+      const res = await releaseSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
+      console.log("Lock response : ", res)
       if (res?.success) {
         alert("🔓 Slot released successfully!");
         const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
@@ -138,33 +138,61 @@ function DayAvailability() {
   };
 
   // ✅ Confirm booking
-  const handleConfirmBooking = async (e) => {
-    e.preventDefault();
-    try {
-      document.activeElement?.blur();
+  // const handleConfirmBooking = async (e) => {
+  //   e.preventDefault();
+  //   try {
+  //     document.activeElement?.blur();
 
-      const payload = {
+  //     const payload = {
+  //       yachtId,
+  //       date: day.date,
+  //       startTime: selectedSlot.start,
+  //       endTime: selectedSlot.end,
+  //       quotedAmount: 0,
+  //       customerId: "replace_with_customer_id", // set actual customer ID
+  //     };
+
+  //     const res = await createBooking(payload, token);
+
+  //     if (res) {
+  //       alert("🎉 Booking confirmed!");
+  //       const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+  //       modal?.hide();
+  //       fetchTimeline();
+  //     }
+  //   } catch (err) {
+  //     console.error("Booking confirm error:", err);
+  //     alert("Failed to confirm booking");
+  //   }
+  // };
+
+  // ✅ Confirm booking — navigate to CreateBooking with prefilled data
+  const handleConfirmBooking = (e) => {
+    e.preventDefault();
+    document.activeElement?.blur();
+
+    if (!selectedSlot) {
+      alert("No slot selected");
+      return;
+    }
+
+    // Close modal
+    const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+    modal?.hide();
+
+    // Navigate with prefilled state
+    navigate("/create-booking", {
+      state: {
         yachtId,
+        yachtName,
         date: day.date,
         startTime: selectedSlot.start,
         endTime: selectedSlot.end,
-        quotedAmount: 0,
-        customerId: "replace_with_customer_id", // set actual customer ID
-      };
-
-      const res = await createBooking(payload, token);
-
-      if (res) {
-        alert("🎉 Booking confirmed!");
-        const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
-        modal?.hide();
-        fetchTimeline();
-      }
-    } catch (err) {
-      console.error("Booking confirm error:", err);
-      alert("Failed to confirm booking");
-    }
+      },
+    });
   };
+
+
 
   return (
     <div className="container mt-4">

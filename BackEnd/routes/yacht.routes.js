@@ -5,6 +5,7 @@ import {
   getYachtById,
   updateYacht,
   deleteYacht,
+  getAllYachtsDetails,
 } from "../controllers/yacht.controller.js";
 
 import { yachtSchema } from "../validators/yacht.validator.js";
@@ -47,6 +48,7 @@ router.post(
 
 // Get all yachts
 router.get("/", authMiddleware, getAllYachts);
+router.get("/details", authMiddleware, onlyAdmin, getAllYachtsDetails);
 
 // Get yacht by ID
 router.get("/:id", authMiddleware, getYachtById);

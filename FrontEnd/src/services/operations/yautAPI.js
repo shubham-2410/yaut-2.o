@@ -53,3 +53,15 @@ export const getAllYachtsAPI = async (token) => {
     throw error;
   }
 };
+
+export const getAllYachtsDetailsAPI = async (token) => {
+  try {
+    const response = await apiConnector("GET", yaut.GET_ALL_YACHTS_DETAILS_API, null, {
+      Authorization: `Bearer ${token}`,
+    });
+    return response;
+  } catch (error) {
+    console.error("❌ Failed to fetch yachts:", error.response?.data || error);
+    throw error;
+  }
+};
