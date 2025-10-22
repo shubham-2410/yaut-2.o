@@ -141,15 +141,40 @@ export const updateBooking = async (req, res, next) => {
 };
 
 
+// controllers/bookingController.js
 export const getBookings = async (req, res) => {
   try {
-    const bookings = await BookingModel.find({company:req.user.company})
-      .populate("customerId employeeId yautId");
-    res.json(bookings);
+    const { startDate, endDate, date, status } = req.query;
+    const company = req.user.company;
+
+    const filter = { company };
+
+    // Filter by date
+    if (date) {
+      const start = new Date(date);
+      const end = new Date(date);
+      end.setDate(end.getDate() + 1);
+      filter.date = { $gte: start, $lt: end };
+    } else if (startDate && endDate) {
+      filter.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
+
+    // Filter by status (if provided)
+    if (status && status !== "all") {
+      filter.status = status.toLowerCase();
+    }
+
+    const bookings = await BookingModel.find(filter)
+      .populate("customerId employeeId yautId")
+      .sort({ date: -1 });
+
+    res.json({ success: true, bookings });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error fetching bookings:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 export const getBookingById = async (req, res) => {
   try {

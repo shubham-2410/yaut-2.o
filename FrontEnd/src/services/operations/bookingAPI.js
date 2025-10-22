@@ -13,14 +13,27 @@ export const createBookingAPI = async (payload, token) => {
   );
 };
 
-export const getBookingsAPI = async (token) => {
-  return apiConnector(
-    "GET",
-    booking.GET_BOOKINGS_API,
-    null,
-    { Authorization: `Bearer ${token}` }
-  );
+// export const getBookingsAPI = async (token) => {
+//   return apiConnector(
+//     "GET",
+//     booking.GET_BOOKINGS_API,
+//     null,
+//     { Authorization: `Bearer ${token}` }
+//   );
+// };
+
+// bookingAPI.js
+export const getBookingsAPI = async (token, filters = {}) => {
+  const params = new URLSearchParams(filters).toString();
+  const url = params
+    ? `${booking.GET_BOOKINGS_API}?${params}`
+    : booking.GET_BOOKINGS_API;
+
+  return apiConnector("GET", url, null, {
+    Authorization: `Bearer ${token}`,
+  });
 };
+
 
 
 // As of not used, made changes in backend and integrated with create Transaction
