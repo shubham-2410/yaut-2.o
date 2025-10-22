@@ -45,7 +45,7 @@ export const getDayAvailability = async (yachtId, date, token) => {
 // -------------------------
 // Lock a slot
 // -------------------------
-export const lockSlotAPI = async (yachtId, date, startTime, endTime, token) => {
+export const lockSlot = async (yachtId, date, startTime, endTime, token) => {
   try {
     if (!token) throw new Error("Authorization token is missing");
 
@@ -65,7 +65,7 @@ export const lockSlotAPI = async (yachtId, date, startTime, endTime, token) => {
 // -------------------------
 // Release a locked slot
 // -------------------------
-export const releaseSlotAPI = async (yachtId, date, startTime, endTime, token) => {
+export const releaseSlot = async (yachtId, date, startTime, endTime, token) => {
   try {
     if (!token) throw new Error("Authorization token is missing");
 

@@ -1,7 +1,7 @@
-// src/pages/DayAvailability.jsx
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getDayAvailability } from "../services/operations/availabilityAPI";
+import { getDayAvailability, lockSlot, releaseSlot } from "../services/operations/availabilityAPI";
+// import { createBooking } from "../services/operations/bookingAPI";
 
 function DayAvailability() {
   const location = useLocation();
@@ -14,6 +14,7 @@ function DayAvailability() {
   const [booking, setBooking] = useState({ start: "", end: "" });
 
   const token = localStorage.getItem("authToken");
+
   if (!day || !yachtId) {
     return (
       <div className="container mt-5 text-center">
@@ -25,43 +26,40 @@ function DayAvailability() {
     );
   }
 
-  // Fetch timeline from backend
+  // 🧠 Build timeline
+  const buildTimeline = (bookedSlots, lockedSlots) => {
+    const allBusy = [
+      ...(bookedSlots || []).map((b) => ({ ...b, type: "booked" })),
+      ...(lockedSlots || []).map((l) => ({ ...l, type: "locked" })),
+    ].sort((a, b) => a.start.localeCompare(b.start));
+
+    const result = [];
+    let currentStart = "00:00";
+
+    for (const slot of allBusy) {
+      if (slot.start > currentStart)
+        result.push({ start: currentStart, end: slot.start, type: "free" });
+
+      result.push(slot);
+      currentStart = slot.end;
+    }
+
+    if (currentStart < "23:59")
+      result.push({ start: currentStart, end: "23:59", type: "free" });
+
+    return result;
+  };
+
+  // 🧾 Fetch availability
   const fetchTimeline = async () => {
-    console.log("Inside Fetch time line")
-    if (!token) return;
-    setLoading(true);
     try {
+      setLoading(true);
+      console.log("🚤 Yacht:", yachtName, yachtId, day.date);
       const res = await getDayAvailability(yachtId, day.date, token);
+
       if (res?.success) {
-        let freeSlots = [{ type: "free", start: "00:00", end: "23:59" }];
-
-        // Function to remove slots that are booked or locked
-        const removeSlots = (slots) => {
-          let updated = [...freeSlots];
-          slots.forEach((slot) => {
-            const newSlots = [];
-            updated.forEach((s) => {
-              if (slot.end <= s.start || slot.start >= s.end) newSlots.push(s);
-              else {
-                if (slot.start > s.start) newSlots.push({ type: "free", start: s.start, end: slot.start });
-                if (slot.end < s.end) newSlots.push({ type: "free", start: slot.end, end: s.end });
-              }
-            });
-            updated = newSlots;
-          });
-          return updated;
-        };
-
-        const freeAfterBooked = removeSlots(res.bookedSlots || []);
-        const freeAfterLocked = removeSlots(res.lockedSlots || []);
-
-        const combinedTimeline = [
-          ...freeAfterLocked,
-          ...(res.bookedSlots || []).map((s) => ({ ...s, type: "booked" })),
-          ...(res.lockedSlots || []).map((s) => ({ ...s, type: "locked" })),
-        ].sort((a, b) => a.start.localeCompare(b.start));
-
-        setTimeline(combinedTimeline);
+        const timelineData = buildTimeline(res.bookedSlots, res.lockedSlots);
+        setTimeline(timelineData);
       }
     } catch (err) {
       console.error("Failed to fetch timeline:", err);
@@ -71,106 +69,133 @@ function DayAvailability() {
   };
 
   useEffect(() => {
-    console.log("🚤 Yacht ID:", yachtId);
-    console.log("🛥️ Yacht Name:", yachtName);
-    console.log("📅 Selected Date:", day?.date);
     fetchTimeline();
-  }, []);
+  }, [yachtId, day.date]);
 
-  // yachtId, yachtName, day
-
-  const handleSlotClick = (slot) => {
-    setSelectedSlot(slot);
-    setBooking({ start: slot.start, end: slot.end });
-    const modalId = slot.type === "free" ? "lockModal" : "confirmModal";
-    const modal = new window.bootstrap.Modal(document.getElementById(modalId));
-    modal.show();
-  };
-
+  // 📅 Handle booking time inputs
   const handleBookingChange = (e) => {
     const { name, value } = e.target;
     setBooking((prev) => ({ ...prev, [name]: value }));
   };
 
+  // 🧭 Handle slot click
+  const handleSlotClick = (slot) => {
+    setSelectedSlot(slot);
+    setBooking({ start: "", end: "" });
+    document.activeElement?.blur(); // avoid aria-hidden warning
+
+    if (slot.type === "free") {
+      const modal = new window.bootstrap.Modal(document.getElementById("lockModal"));
+      modal.show();
+    } else if (slot.type === "locked") {
+      const modal = new window.bootstrap.Modal(document.getElementById("confirmModal"));
+      modal.show();
+    } else if (slot.type === "booked") {
+      alert("⛔ This slot is already booked and cannot be modified.");
+    }
+  };
+
+  // 🔒 Lock a slot
   const handleLockSlot = async (e) => {
     e.preventDefault();
-    if (!selectedSlot || !token) return;
-
     try {
-      await lockSlot(yachtId, day.date, booking.start, booking.end, token);
-      await fetchTimeline(); // refresh timeline
+      console.log("In handle lock ")
+      document.activeElement?.blur();
+      const res = await lockSlot(yachtId, day.date, booking.start, booking.end, token);
+      console.log("Lock Slot res -- ", res)
+      if (res?.success) {
+        alert("✅ Slot locked successfully!");
+        const modal = window.bootstrap.Modal.getInstance(document.getElementById("lockModal"));
+        modal?.hide();
+        fetchTimeline();
+      } else {
+        alert(res?.message || "Failed to lock slot");
+      }
     } catch (err) {
-      console.error("Failed to lock slot:", err);
-    } finally {
-      const modalEl = document.getElementById("lockModal");
-      const modal = window.bootstrap.Modal.getInstance(modalEl);
-      modal.hide();
-      setSelectedSlot(null);
-      setBooking({ start: "", end: "" });
+      console.error("Lock slot error:", err);
+      alert("Error locking slot");
     }
   };
 
+  // 🔓 Release a locked slot
+  const handleReleaseLock = async () => {
+    try {
+      document.activeElement?.blur();
+      const res = await releaseSlot( yachtId, day.date, selectedSlot.start, selectedSlot.end, token );
+      console.log("Lock response : " , res)
+      if (res?.success) {
+        alert("🔓 Slot released successfully!");
+        const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+        modal?.hide();
+        fetchTimeline();
+      } else {
+        alert(res?.data?.message || "Failed to release slot");
+      }
+    } catch (err) {
+      console.error("Release slot error:", err);
+      alert(err?.response?.data?.message);
+    }
+  };
+
+  // ✅ Confirm booking
   const handleConfirmBooking = async (e) => {
     e.preventDefault();
-    if (!selectedSlot || !token) return;
-
     try {
-      await confirmBooking(yachtId, day.date, booking.start, booking.end, token);
-      await fetchTimeline(); // refresh timeline
-    } catch (err) {
-      console.error("Failed to confirm booking:", err);
-    } finally {
-      const modalEl = document.getElementById("confirmModal");
-      const modal = window.bootstrap.Modal.getInstance(modalEl);
-      modal.hide();
-      setSelectedSlot(null);
-      setBooking({ start: "", end: "" });
-    }
-  };
+      document.activeElement?.blur();
 
-  const handleReleaseLock = async () => {
-    if (!selectedSlot || !token) return;
+      const payload = {
+        yachtId,
+        date: day.date,
+        startTime: selectedSlot.start,
+        endTime: selectedSlot.end,
+        quotedAmount: 0,
+        customerId: "replace_with_customer_id", // set actual customer ID
+      };
 
-    try {
-      await confirmBooking(yachtId, day.date, selectedSlot.start, selectedSlot.end, token, true); // release lock
-      await fetchTimeline(); // refresh timeline
+      const res = await createBooking(payload, token);
+
+      if (res) {
+        alert("🎉 Booking confirmed!");
+        const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+        modal?.hide();
+        fetchTimeline();
+      }
     } catch (err) {
-      console.error("Failed to release lock:", err);
-    } finally {
-      const modalEl = document.getElementById("confirmModal");
-      const modal = window.bootstrap.Modal.getInstance(modalEl);
-      modal.hide();
-      setSelectedSlot(null);
-      setBooking({ start: "", end: "" });
+      console.error("Booking confirm error:", err);
+      alert("Failed to confirm booking");
     }
   };
 
   return (
     <div className="container mt-4">
-      <h1>HI Im</h1>
       <button className="btn btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
         ← Back
       </button>
-      <h4>{yachtName} — {day.day}, {day.date}</h4>
+
+      <h4>
+        {yachtName} — {day.day}, {day.date}
+      </h4>
       <hr />
 
       {loading ? (
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
         </div>
+      ) : timeline.length === 0 ? (
+        <div className="text-center text-muted mt-5">No timeline data</div>
       ) : (
         <div className="timeline-container mb-4">
           {timeline.map((slot, i) => (
             <div
               key={i}
-              className={`p-3 mb-2 rounded text-center fw-semibold ${slot.type === "booked"
-                  ? "bg-danger text-white"
-                  : slot.type === "locked"
-                    ? "bg-warning text-dark"
-                    : "bg-success text-white"
-                }`}
-              style={{ cursor: slot.type === "free" ? "pointer" : "default" }}
               onClick={() => handleSlotClick(slot)}
+              className={`p-3 mb-2 rounded text-center fw-semibold cursor-pointer ${slot.type === "booked"
+                ? "bg-danger text-white"
+                : slot.type === "locked"
+                  ? "bg-warning text-dark"
+                  : "bg-success text-white"
+                }`}
+              style={{ cursor: "pointer" }}
             >
               {slot.type.charAt(0).toUpperCase() + slot.type.slice(1)} — {slot.start} to {slot.end}
             </div>
@@ -178,7 +203,7 @@ function DayAvailability() {
         </div>
       )}
 
-      {/* Lock Slot Modal */}
+      {/* 🔒 Lock Modal */}
       <div className="modal fade" id="lockModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog">
           <div className="modal-content">
@@ -191,21 +216,43 @@ function DayAvailability() {
                 {selectedSlot && (
                   <>
                     <p>Free slot: {selectedSlot.start} — {selectedSlot.end}</p>
-                    <input type="time" className="form-control mb-2" name="start" value={booking.start} min={selectedSlot.start} max={selectedSlot.end} onChange={handleBookingChange} required />
-                    <input type="time" className="form-control" name="end" value={booking.end} min={booking.start} max={selectedSlot.end} onChange={handleBookingChange} required />
+                    <input
+                      type="time"
+                      className="form-control mb-2"
+                      name="start"
+                      value={booking.start}
+                      min={selectedSlot.start}
+                      max={selectedSlot.end}
+                      onChange={handleBookingChange}
+                      required
+                    />
+                    <input
+                      type="time"
+                      className="form-control"
+                      name="end"
+                      value={booking.end}
+                      min={booking.start}
+                      max={selectedSlot.end}
+                      onChange={handleBookingChange}
+                      required
+                    />
                   </>
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" className="btn btn-warning">Lock Slot</button>
+                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-warning">
+                  Lock Slot
+                </button>
               </div>
             </form>
           </div>
         </div>
       </div>
 
-      {/* Confirm Booking Modal */}
+      {/* ✅ Confirm Booking Modal */}
       <div className="modal fade" id="confirmModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog">
           <div className="modal-content">
@@ -218,8 +265,16 @@ function DayAvailability() {
                 {selectedSlot && <p>Locked slot: {selectedSlot.start} — {selectedSlot.end}</p>}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-danger" onClick={handleReleaseLock}>Release Lock</button>
-                <button type="submit" className="btn btn-primary">Confirm Booking</button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleReleaseLock}
+                >
+                  Release Lock
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Confirm Booking
+                </button>
               </div>
             </form>
           </div>

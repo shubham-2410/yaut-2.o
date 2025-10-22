@@ -12,37 +12,60 @@ const toMinutes = (time) => {
 };
 
 // -------------------------
-// Check if a slot is available
+// Check if a slot is available (prevent overlapping)
 // -------------------------
 export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime, employeeId }) => {
   if (!yachtId || !date || !startTime || !endTime) {
     return { available: false, reason: "yachtId, date, startTime, and endTime are required." };
   }
 
-  const slots = await AvailabilityModel.find({ yachtId, date });
-
   const newStart = toMinutes(startTime);
   const newEnd = toMinutes(endTime);
+  if (newEnd <= newStart) {
+    return { available: false, reason: "End time must be after start time." };
+  }
 
-  for (const slot of slots) {
+  // 1️⃣ Check for overlap in AVAILABILITY (locked/booked)
+  const availSlots = await AvailabilityModel.find({ yachtId, date });
+  for (const slot of availSlots) {
     const slotStart = toMinutes(slot.startTime);
     const slotEnd = toMinutes(slot.endTime);
-
     const overlap = newStart < slotEnd && newEnd > slotStart;
 
     if (overlap) {
-      if (slot.status === "booked") return { available: false, reason: "Slot already booked." };
+      if (slot.status === "booked") {
+        return { available: false, reason: "Slot already booked in availability. Please check the availability" };
+      }
       if (slot.status === "locked" && String(slot.appliedBy) !== String(employeeId)) {
         return { available: false, reason: "Slot locked by another employee." };
       }
       if (slot.status === "locked" && String(slot.appliedBy) === String(employeeId)) {
-        return { available: true, conflictSlot: slot };
+        return { available: true, conflictSlot: slot }; // same user’s lock
       }
     }
   }
 
+  // 2️⃣ Check for overlap in BOOKINGS (initiated/booked)
+  const existingBookings = await BookingModel.find({
+    yachtId,
+    date,
+    status: { $in: ["initiated", "booked"] },
+  });
+
+  for (const b of existingBookings) {
+    const bStart = toMinutes(b.startTime);
+    const bEnd = toMinutes(b.endTime);
+    const overlap = newStart < bEnd && newEnd > bStart;
+
+    if (overlap) {
+      return { available: false, reason: "Slot already booked in another booking." };
+    }
+  }
+
+  // ✅ If no overlap found
   return { available: true };
 };
+
 
 // -------------------------
 // Lock a slot
@@ -61,10 +84,11 @@ export const lockSlot = async (req, res, next) => {
     if (!available) return res.status(400).json({ success: false, message: reason });
     if (conflictSlot) return res.status(400).json({ success: false, message: "You already have a lock on this slot." });
 
-    const [year, month, day] = date.split("-");
-    const [endHour, endMinute] = endTime.split(":");
-    const slotEndTime = new Date(year, month - 1, day, endHour, endMinute);
-    const deleteAfter = new Date(slotEndTime.getTime() + lockDurationMinutes * 60 * 1000);
+    // const [year, month, day] = date.split("-");
+    // const [endHour, endMinute] = endTime.split(":");
+    // const slotEndTime = new Date(year, month - 1, day, endHour, endMinute);
+    // const deleteAfter = new Date(slotEndTime.getTime() + lockDurationMinutes * 60 * 1000);
+     const deleteAfter = new Date(Date.now() + lockDurationMinutes * 60 * 1000);
 
     const lockedSlot = await AvailabilityModel.create({
       yachtId,
@@ -97,8 +121,12 @@ export const releaseSlot = async (req, res, next) => {
 
     const slot = await AvailabilityModel.findOne({ yachtId, date, startTime, endTime });
     if (!slot) return res.status(404).json({ success: false, message: "Slot not found." });
-    if (slot.status !== "locked") return res.status(400).json({ success: false, message: "Slot is not locked." });
-    if (String(slot.appliedBy) !== String(employeeId)) return res.status(403).json({ success: false, message: "You cannot release a slot locked by another employee." });
+    if (slot.status !== "locked") return res.status(400).json({ success: false, 
+      message: "Slot is not locked." });
+    if (String(slot.appliedBy) !== String(employeeId)){ 
+      console.log("Locked by another emp")
+      return res.status(403).json({ success: false, message: "You cannot release a slot locked by another employee." });    
+    }
 
     await slot.deleteOne();
     res.json({ success: true, message: "Locked slot released successfully." });
@@ -108,157 +136,11 @@ export const releaseSlot = async (req, res, next) => {
   }
 };
 
-// -------------------------
-// Get availability summary for all yachts
-// -------------------------
-// export const getAvailabilitySummary = async (req, res, next) => {
-//   console.log("Im in")
-//   try {
-//     const { startDate, endDate } = req.query;
-//     const { company } = req.user;
-
-//     if (!startDate || !endDate) return res.status(400).json({ success: false, message: "Start and end dates are required." });
-
-//     const start = new Date(startDate);
-//     const end = new Date(endDate);
-
-//     const yachts = await YachtModel.find({ company }).select("_id name");
-//     if (!yachts.length) return res.status(404).json({ success: false, message: "No yachts found for this company." });
-
-//     const yachtIds = yachts.map((y) => y._id);
-
-//     const slots = await AvailabilityModel.find({
-//       yachtId: { $in: yachtIds },
-//       date: { $gte: start, $lte: end },
-//     });
-
-//     const summary = {};
-//     slots.forEach((slot) => {
-//       if (!slot || !slot.date) return;
-//       const yachtKey = slot.yachtId.toString();
-//       const dateStr = slot.date.toISOString().split("T")[0];
-
-//       if (!summary[yachtKey]) summary[yachtKey] = {};
-//       if (!summary[yachtKey][dateStr]) summary[yachtKey][dateStr] = [];
-//       summary[yachtKey][dateStr].push(slot);
-//     });
-
-//     const yachtSummaries = yachts.map((yacht) => {
-//       const yachtData = [];
-//       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-//         const dateStr = d.toISOString().split("T")[0];
-//         const daySlots = summary[yacht._id]?.[dateStr] || [];
-//         const booked = daySlots.filter((s) => s.status === "booked").length;
-//         const locked = daySlots.filter((s) => s.status === "locked").length;
-
-//         yachtData.push({
-//           date: dateStr,
-//           status: booked ? "busy" : locked ? "locked" : "free",
-//           bookedSlots: booked,
-//           lockedSlots: locked,
-//         });
-//       }
-//       return {
-//         yachtId: yacht._id,
-//         yachtName: yacht.name,
-//         availability: yachtData,
-//       };
-//     });
-
-//     res.json({ success: true, company, range: { startDate, endDate }, yachts: yachtSummaries });
-//   } catch (error) {
-//     console.error("getAvailabilitySummary error:", error);
-//     next(error);
-//   }
-// };
-
-// Helper to safely convert string to Date
 const parseDate = (dateStr) => {
   const d = new Date(dateStr);
   if (isNaN(d)) throw new Error(`Invalid date: ${dateStr}`);
   return d;
 };
-
-// GET /api/availability/summary
-// export const getAvailabilitySummary = async (req, res, next) => {
-//   try {
-//     const { startDate, endDate } = req.query;
-//     const { company } = req.user;
-
-//     if (!startDate || !endDate) {
-//       return res.status(400).json({ success: false, message: "Start and end dates are required." });
-//     }
-
-//     const start = parseDate(startDate);
-//     const end = parseDate(endDate);
-
-//     // Fetch all yachts for the company
-//     const yachts = await YachtModel.find({ company }).select("_id name");
-//     if (!yachts.length) return res.status(404).json({ success: false, message: "No yachts found for this company." });
-
-//     const yachtIds = yachts.map((y) => y._id);
-
-//     // Fetch all availability slots
-//     const slots = await AvailabilityModel.find({
-//       yachtId: { $in: yachtIds },
-//       date: { $gte: start, $lte: end },
-//     });
-
-//     // Fetch all bookings
-//     const bookings = await BookingModel.find({
-//       yachtId: { $in: yachtIds }, // make sure field is yachtId
-//       date: { $gte: start, $lte: end },
-//       status: { $in: ["initiated", "booked"] },
-//     });
-
-//     // Organize slots & bookings by yacht & date
-//     const summary = {};
-//     yachts.forEach((y) => (summary[y._id] = {}));
-
-//     // Add availability slots
-//     slots.forEach((slot) => {
-//       if (!slot || !slot.date || !slot.yachtId) return;
-//       const dateStr = slot.date.toISOString().split("T")[0];
-//       summary[slot.yachtId][dateStr] = summary[slot.yachtId][dateStr] || { booked: 0, locked: 0 };
-//       if (slot.status === "booked") summary[slot.yachtId][dateStr].booked += 1;
-//       if (slot.status === "locked") summary[slot.yachtId][dateStr].locked += 1;
-//     });
-
-//     // Add bookings
-//     bookings.forEach((b) => {
-//       if (!b || !b.date || !b.yachtId) return;
-//       const dateStr = b.date.toISOString().split("T")[0];
-//       summary[b.yachtId][dateStr] = summary[b.yachtId][dateStr] || { booked: 0, locked: 0 };
-//       summary[b.yachtId][dateStr].booked += 1; // count booking as busy
-//     });
-
-//     // Build response
-//     const yachtSummaries = yachts.map((yacht) => {
-//       const yachtData = [];
-//       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-//         const dateStr = d.toISOString().split("T")[0];
-//         const dayInfo = summary[yacht._id][dateStr] || { booked: 0, locked: 0 };
-//         yachtData.push({
-//           date: dateStr,
-//           status: dayInfo.booked > 0 ? "busy" : dayInfo.locked > 0 ? "locked" : "free",
-//           bookedSlots: dayInfo.booked,
-//           lockedSlots: dayInfo.locked,
-//         });
-//       }
-//       return {
-//         yachtId: yacht._id,
-//         yachtName: yacht.name,
-//         availability: yachtData,
-//       };
-//     });
-
-//     console.log("Yacht summaries:", yachtSummaries); // debug
-//     res.json({ success: true, company, range: { startDate, endDate }, yachts: yachtSummaries });
-//   } catch (error) {
-//     console.error("getAvailabilitySummary error:", error);
-//     next(error);
-//   }
-// };
 
 export const getAvailabilitySummary = async (req, res, next) => {
   try {
