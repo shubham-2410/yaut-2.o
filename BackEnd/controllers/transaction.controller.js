@@ -2,65 +2,6 @@ import mongoose from "mongoose";
 import {TransactionModel} from "../models/transaction.model.js";
 import { BookingModel } from "../models/booking.model.js";
 
-// export const createTransactionAndUpdateBooking = async (req, res, next) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const employeeId = req.user.id; // ✅ Taking from token
-//     const { bookingId, type, amount, paymentProof, status } = req.body;
-//     console.log("stauts ", status )
-//     console.log("type ", type )
-//     console.log("amount ", amount )
-//     console.log("paymentProof ", paymentProof )
-//     // Step 1: Create Transaction
-//     const transaction = await TransactionModel.create(
-//       [{
-//         bookingId,
-//         type,
-//         employeeId,
-//         amount,
-//         paymentProof: req.cloudinaryUrl || paymentProof,
-//         date: new Date().toISOString()
-//       }],
-//       { session }
-//     );
-
-//     // Step 2: Update Booking (decrease pending amount and push transactionId)
-//     const booking = await BookingModel.findById(bookingId).session(session);
-
-//     if (!booking) {
-//       throw new Error("Booking not found");
-//     }
-
-//     const updatedPendingAmount = booking.pendingAmount - amount;
-//     if (updatedPendingAmount < 0) {
-//       throw new Error("Amount cannot exceed pending amount");
-//     }
-//     booking.status = status;
-//     booking.pendingAmount = updatedPendingAmount;
-//     booking.transactionIds.push(transaction[0]._id);
-
-//     await booking.save({ session });
-
-//     // Step 3: Commit Transaction
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Transaction created & booking updated successfully",
-//       transaction: transaction[0],
-//       booking
-//     });
-
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     next(error);
-//   }
-// };
-
 export const createTransactionAndUpdateBooking = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();

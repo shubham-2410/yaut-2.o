@@ -29,9 +29,12 @@ export const getBookingsAPI = async (token, filters = {}) => {
     ? `${booking.GET_BOOKINGS_API}?${params}`
     : booking.GET_BOOKINGS_API;
 
-  return apiConnector("GET", url, null, {
+  const response = await apiConnector("GET", url, null, {
     Authorization: `Bearer ${token}`,
   });
+
+  console.log("Booking res - ", response);
+  return response;
 };
 
 

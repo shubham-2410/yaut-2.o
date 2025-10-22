@@ -102,7 +102,9 @@ function Bookings({ user }) {
               <div key={booking._id} className="col-md-6 mb-3">
                 <div className="card p-3">
                   <h5>{booking.customerId?.name}</h5>
-                  <p>Boat: {booking.yautId?.name || booking.yautId}</p>
+                  <p>Yacht: {booking.yachtId?.name}</p>
+                  <p>Ticket : {booking._id.toString().slice(-5).toUpperCase()}</p>
+                  <p>Date: {new Date(booking.date).toISOString().split("T")[0]}</p>
                   <p>
                     Status:{" "}
                     <span
