@@ -87,8 +87,7 @@ function App() {
           }
         />
 
-
-           <Route
+        <Route
           path="/create-yacht"
           element={
             <ProtectedRoute user={user}>
@@ -97,24 +96,32 @@ function App() {
           }
         />
 
-       <Route
-  path="/all-yachts"
-  element={
-    <ProtectedRoute user={user}>
-      {["admin", "backdesk"].includes(role) ? <AllYachts /> : <NotFound />}
-    </ProtectedRoute>
-  }
-/>
-        
-            <Route
-          path="/all-employees"
+        <Route
+          path="/all-yachts"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? <AllEmployees /> : <NotFound />}
+              {["admin", "backdesk"].includes(role) ? (
+                <AllYachts />
+              ) : (
+                <NotFound />
+              )}
             </ProtectedRoute>
           }
         />
-        
+
+        <Route
+          path="/all-employees"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? (
+                <AllEmployees />
+              ) : (
+                <NotFound />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/create-employee"
           element={
@@ -123,8 +130,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        
 
         <Route
           path="/bookings"
@@ -218,3 +223,5 @@ function App() {
 }
 
 export default App;
+
+
