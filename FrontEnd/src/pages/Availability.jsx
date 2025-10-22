@@ -1,24 +1,25 @@
-// src/pages/Availability.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
+import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
 
 function Availability() {
   const [availability, setAvailability] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedYacht, setSelectedYacht] = useState(null);
+  const [detailedYacht, setDetailedYacht] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const navigate = useNavigate();
 
-  // 🔐 Read token from localStorage
   const token = localStorage.getItem("authToken");
 
+  // 🧭 Fetch weekly availability summary
   useEffect(() => {
     const fetchAvailability = async () => {
       try {
         setLoading(true);
-
-        // 📅 Get today's date and 5 days later
         const today = new Date();
         const fiveDaysLater = new Date();
         fiveDaysLater.setDate(today.getDate() + 5);
@@ -26,7 +27,6 @@ function Availability() {
         const startDate = today.toISOString().split("T")[0];
         const endDate = fiveDaysLater.toISOString().split("T")[0];
 
-        // For heading (Oct 21 - Oct 26)
         const weekLabel = `${today.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
@@ -37,30 +37,37 @@ function Availability() {
         })}`;
         setSelectedWeek(weekLabel);
 
-        // 🔥 Fetch from backend
         const res = await getAvailabilitySummary(startDate, endDate, token);
-        console.log("Availability Response:", res);
-
         if (res?.success && res?.yachts) {
           const formatted = res.yachts.map((y) => ({
-            yachtId: y.yachtId || y._id, // fallback for _id
-            yachtName: y.yachtName,
-            email: `${y.yachtName.toLowerCase().replace(/\s/g, "")}@gmail.com`,
-            // days: y.availability.map((a) => ({
-            //   day: new Date(a.date).toLocaleDateString("en-US", { weekday: "short" }),
-            //   date: new Date(a.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-            //   status: a.status === "busy" ? "Busy" : a.status === "locked" ? "Locked" : "Free",
-            //   bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
-            // })),
+            yachtId: y.yachtId || y._id,
+            name: y.name || y.yachtName,
+            company: y.company,
+            capacity: y.capacity,
+            status: y.status,
+            yachtPhotos:
+              y.yachtPhotos && y.yachtPhotos.length > 0
+                ? y.yachtPhotos
+                : y.photos && y.photos.length > 0
+                ? y.photos
+                : ["/default-yacht.jpg"],
+            email: `${(y.name || y.yachtName)?.toLowerCase()?.replace(/\s/g, "")}@gmail.com`,
             days: y.availability.map((a) => ({
-              day: new Date(a.date).toLocaleDateString("en-US", { weekday: "short" }),
-              date: new Date(a.date).toISOString().split("T")[0], // ✅ YYYY-MM-DD
-              status: a.status === "busy" ? "Busy" : a.status === "locked" ? "Locked" : "Free",
-              bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
+              day: new Date(a.date).toLocaleDateString("en-US", {
+                weekday: "short",
+              }),
+              date: new Date(a.date).toISOString().split("T")[0],
+              status:
+                a.status === "busy"
+                  ? "Busy"
+                  : a.status === "locked"
+                  ? "Locked"
+                  : "Free",
+              bookedSlots: a.bookingsCount
+                ? Array(a.bookingsCount).fill({})
+                : [],
             })),
           }));
-
-          console.log("Formatted Availability:", formatted);
           setAvailability(formatted);
         }
       } catch (err) {
@@ -73,49 +80,67 @@ function Availability() {
     if (token) fetchAvailability();
   }, [token]);
 
-  // -------------------------
-  // Handle day click
-  // -------------------------
-  // const handleDayClick = (yacht, day) => {
-  //   console.log("Inside handle day")
-  //   console.log(yacht, "   ", day);
-  //   if (!yacht || !day) {
-  //     console.error("Yacht or day data missing");
-  //     return;
-  //   }
-
-  //   // Format date to YYYY-MM-DD without spaces
-  //   const formattedDate = day.date.replace(/\s+/g, "");
-
-  //   navigate(`/availability/${encodeURIComponent(yacht.yachtName)}/${formattedDate}`, {
-  //     state: {
-  //       yachtId: yacht.yachtId,
-  //       yachtName: yacht.yachtName,
-  //       day, // full day object for DayAvailability
-  //     },
-  //   });
-  // };
-
+  // 📅 Navigate to specific date's availability
   const handleDayClick = (yacht, day) => {
     if (!yacht || !day) return;
-
-    const formattedDate = day.date; // already YYYY-MM-DD
-
-    navigate(`/availability/${encodeURIComponent(yacht.yachtName)}/${formattedDate}`, {
-      state: {
-        yachtId: yacht.yachtId,
-        yachtName: yacht.yachtName,
-        day, // full day object for DayAvailability
-      },
-    });
+    navigate(
+      `/availability/${encodeURIComponent(yacht.name)}/${day.date}`,
+      {
+        state: { yachtId: yacht.yachtId, yachtName: yacht.name, day },
+      }
+    );
   };
 
+  // 🔍 Fetch detailed yacht info for modal
+  const handleYachtClick = async (yacht) => {
+    setSelectedYacht(yacht);
+    setLoadingDetails(true);
+
+    try {
+      const res = await getAllYachtsDetailsAPI(token);
+      const allYachts = res?.data?.yachts || [];
+      const details = allYachts.find((y) => y._id === yacht.yachtId);
+
+      if (details) {
+        setDetailedYacht({
+          ...details,
+          yachtPhotos:
+            details.yachtPhotos && details.yachtPhotos.length > 0
+              ? details.yachtPhotos
+              : details.photos && details.photos.length > 0
+              ? details.photos
+              : ["/default-yacht.jpg"],
+          currentImageIndex: 0,
+        });
+      } else {
+        setDetailedYacht({
+          ...yacht,
+          yachtPhotos:
+            yacht.yachtPhotos && yacht.yachtPhotos.length > 0
+              ? yacht.yachtPhotos
+              : yacht.photos && yacht.photos.length > 0
+              ? yacht.photos
+              : ["/default-yacht.jpg"],
+          currentImageIndex: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching detailed yacht info:", error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedYacht(null);
+    setDetailedYacht(null);
+  };
 
   return (
     <div className="container mt-4">
       <h3 className="text-center mb-3">Yacht Availability</h3>
 
-      {/* Week Selector */}
+      {/* Week Range */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <button className="btn btn-outline-primary btn-sm" disabled>
           &lt;
@@ -129,9 +154,7 @@ function Availability() {
       {/* Loader */}
       {loading ? (
         <div className="text-center mt-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <div className="spinner-border text-primary" role="status"></div>
         </div>
       ) : availability.length === 0 ? (
         <div className="text-center text-muted mt-5">No yachts available</div>
@@ -141,7 +164,13 @@ function Availability() {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
-                  <h5 className="mb-1">{yacht.yachtName}</h5>
+                  <h5
+                    className="mb-1 text-primary"
+                    style={{ cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => handleYachtClick(yacht)}
+                  >
+                    {yacht.name}
+                  </h5>
                   <small className="text-muted">{yacht.email}</small>
                 </div>
               </div>
@@ -170,8 +199,8 @@ function Availability() {
                             d.status === "Busy"
                               ? "bg-warning text-dark"
                               : d.status === "Locked"
-                                ? "bg-secondary text-white"
-                                : "bg-success text-white"
+                              ? "bg-secondary text-white"
+                              : "bg-success text-white"
                           }
                         >
                           <strong>{d.status}</strong>
@@ -191,6 +220,120 @@ function Availability() {
           </div>
         ))
       )}
+
+      {/* Yacht Details Modal */}
+      {/* Yacht Details Modal */}
+{selectedYacht && detailedYacht && (
+  <div
+    className="modal fade show"
+    style={{ display: "block", backgroundColor: "rgba(0,0,0,0.6)" }}
+    onClick={closeModal}
+  >
+    <div
+      className="modal-dialog modal-dialog-centered"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="modal-content">
+        <div className="modal-header bg-primary text-white">
+          <h5 className="modal-title text-center w-100">
+            {selectedYacht.name} — Details
+          </h5>
+          <button
+            type="button"
+            className="btn-close btn-close-white"
+            onClick={closeModal}
+          ></button>
+        </div>
+
+        <div className="modal-body text-center">
+          {loadingDetails ? (
+            <div className="text-center py-4">
+              <div className="spinner-border text-primary" role="status"></div>
+              <p className="mt-2">Loading details...</p>
+            </div>
+          ) : (
+            <>
+              {/* Image Slider */}
+              <div className="position-relative mb-3">
+                <img
+                  src={
+                    detailedYacht.yachtPhotos[detailedYacht.currentImageIndex] ||
+                    "/default-yacht.jpg"
+                  }
+                  alt="Yacht"
+                  className="d-block mx-auto rounded"
+                  style={{ height: "200px", width: "100%", maxWidth: "300px", objectFit: "cover" }}
+                />
+
+                {/* Arrows for multiple images */}
+                {detailedYacht.yachtPhotos.length > 1 && (
+                  <>
+                    <button
+                      className="btn btn-dark btn-sm position-absolute top-50 start-0 translate-middle-y"
+                      style={{ opacity: 0.7, padding: "6px 12px", fontSize: "18px" }}
+                      onClick={() =>
+                        setDetailedYacht((prev) => ({
+                          ...prev,
+                          currentImageIndex:
+                            (prev.currentImageIndex - 1 + prev.yachtPhotos.length) %
+                            prev.yachtPhotos.length,
+                        }))
+                      }
+                    >
+                      ‹
+                    </button>
+                    <button
+                      className="btn btn-dark btn-sm position-absolute top-50 end-0 translate-middle-y"
+                      style={{ opacity: 0.7, padding: "6px 12px", fontSize: "18px" }}
+                      onClick={() =>
+                        setDetailedYacht((prev) => ({
+                          ...prev,
+                          currentImageIndex:
+                            (prev.currentImageIndex + 1) % prev.yachtPhotos.length,
+                        }))
+                      }
+                    >
+                      ›
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Info Table */}
+              <table className="table table-bordered mx-auto" style={{ maxWidth: "300px" }}>
+                <tbody>
+                  <tr>
+                    <th>Capacity</th>
+                    <td>{detailedYacht.capacity || "—"}</td>
+                  </tr>
+                  <tr>
+                    <th>Status</th>
+                    <td>
+                      <span
+                        className={`badge ${
+                          detailedYacht.status === "active" ? "bg-success" : "bg-danger"
+                        }`}
+                      >
+                        {detailedYacht.status}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer justify-content-center">
+          <button className="btn btn-secondary" onClick={closeModal}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
