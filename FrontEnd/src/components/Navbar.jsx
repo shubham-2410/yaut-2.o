@@ -132,7 +132,7 @@ function Navbar({ user, onLogout }) {
               )}
 
               {/* Collections */}
-              {user?.type === "admin" && (
+              {/* {user?.type === "admin" && (
                 <li className="nav-item">
                   <Link
                     className="nav-link"
@@ -142,7 +142,7 @@ function Navbar({ user, onLogout }) {
                     Collections
                   </Link>
                 </li>
-              )}
+              )} */}
             </ul>
 
             {/* My Profile (Initials) & Logout */}
