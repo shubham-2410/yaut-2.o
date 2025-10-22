@@ -55,8 +55,13 @@ export const loginEmployee = async (req, res, next) => {
 // ✅ Get All Employees
 export const getEmployees = async (req, res, next) => {
   try {
-    const employees = await EmployeeModel.find({company: req.user.company});
-    res.json({ success: true, employees });
+    // Fetch only required fields (hide password & company)
+    const employees = await EmployeeModel.find(
+      { company: req.user.company },
+      "-password -company" // exclude password and company
+    );
+
+    res.status(200).json({ success: true, employees });
   } catch (error) {
     next(error);
   }

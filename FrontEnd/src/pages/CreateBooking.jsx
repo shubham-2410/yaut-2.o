@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { createBookingAPI } from "../services/operations/bookingAPI";
 import { getCustomerByEmailAPI } from "../services/operations/customerAPI";
 import { getAllYachtsAPI } from "../services/operations/yautAPI";
 
 function CreateBooking() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = location.state || {}; // 👈 prefilled data from DayAvailability
 
   const [formData, setFormData] = useState({
     email: "",
-    yachtId: "",
+    yachtId: prefill.yachtId || "",
     totalAmount: "",
-    date: "",
-    startTime: "",
-    endTime: "",
+    date: prefill.date || "",
+    startTime: prefill.startTime || "",
+    endTime: prefill.endTime || "",
     numPeople: "",
   });
 
