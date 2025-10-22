@@ -18,6 +18,8 @@ import CreateBooking from "./pages/CreateBooking";
 import UpdateBooking from "./pages/UpdateBooking";
 import DayAvailability from "./pages/DayAvailability";
 import CreateYacht from "./pages/CreateYacht";
+import AllYachts from "./pages/AllYachts";
+import AllEmployees from "./pages/AllEmployees";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -94,6 +96,24 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+       <Route
+  path="/all-yachts"
+  element={
+    <ProtectedRoute user={user}>
+      {["admin", "backdesk"].includes(role) ? <AllYachts /> : <NotFound />}
+    </ProtectedRoute>
+  }
+/>
+        
+            <Route
+          path="/all-employees"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? <AllEmployees /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
         
         <Route
           path="/create-employee"
@@ -103,6 +123,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        
 
         <Route
           path="/bookings"

@@ -1,11 +1,10 @@
-// src/components/Navbar.jsx
 import React, { useRef } from "react";
 import { Link } from "react-router-dom";
 
 function Navbar({ user, onLogout }) {
   const collapseRef = useRef(null);
 
-  // Collapse navbar on link click (mobile)
+  // Collapse navbar on link click (for mobile)
   const handleNavLinkClick = () => {
     const collapseEl = collapseRef.current;
     if (collapseEl && collapseEl.classList.contains("show")) {
@@ -43,6 +42,7 @@ function Navbar({ user, onLogout }) {
           ref={collapseRef}
         >
           <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+            {/* Admin Dashboard */}
             {user?.type === "admin" && (
               <li className="nav-item">
                 <Link
@@ -55,6 +55,7 @@ function Navbar({ user, onLogout }) {
               </li>
             )}
 
+            {/* Create Customer */}
             {(user?.type === "admin" || user?.type === "backdesk") && (
               <li className="nav-item">
                 <Link
@@ -66,19 +67,17 @@ function Navbar({ user, onLogout }) {
                 </Link>
               </li>
             )}
+            
 
-            {user?.type === "admin" && (
+             {(user?.type === "admin" ) && (
               <li className="nav-item">
-                <Link
-                  className="nav-link"
-                  to="/create-employee"
-                  onClick={handleNavLinkClick}
-                >
-                  Create Employee
+                <Link className="nav-link" to="/all-employees" onClick={handleNavLinkClick}>
+                  Employee Management
                 </Link>
               </li>
             )}
 
+            {/* Bookings */}
             <li className="nav-item">
               <Link
                 className="nav-link"
@@ -89,6 +88,7 @@ function Navbar({ user, onLogout }) {
               </Link>
             </li>
 
+            {/* Availability */}
             {(user?.type === "admin" || user?.type === "backdesk") && (
               <li className="nav-item">
                 <Link
@@ -100,21 +100,23 @@ function Navbar({ user, onLogout }) {
                 </Link>
               </li>
             )}
+
+           
+
+            {/* ✅ All Yachts (new link) */}
             {user?.type === "admin" && (
-  <li className="nav-item">
-    <Link
-      className="nav-link"
-      to="/create-yacht"
-      onClick={handleNavLinkClick}
-    >
-      Create Yacht
-    </Link>
-  </li>
-)}
+              <li className="nav-item">
+                <Link
+                  className="nav-link"
+                  to="/all-yachts"
+                  onClick={handleNavLinkClick}
+                >
+                  Yacht Management
+                </Link>
+              </li>
+            )}
 
-
-
-            {/* Collections - Admin only */}
+            {/* Collections */}
             {user?.type === "admin" && (
               <li className="nav-item">
                 <Link
@@ -128,7 +130,7 @@ function Navbar({ user, onLogout }) {
             )}
           </ul>
 
-          {/* Logout button aligned to right */}
+          {/* Logout button */}
           <div className="d-flex mt-2 mt-lg-0">
             <button
               className="btn btn-light btn-sm w-100 w-lg-auto"
