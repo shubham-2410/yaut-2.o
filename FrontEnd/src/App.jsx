@@ -48,7 +48,7 @@ function App() {
         {/* Public route */}
         <Route
           path="/"
-          element={user ? <Navigate to="/homr" /> : <Login onLogin={handleLogin} />}
+          element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />}
         />
 
         <Route
