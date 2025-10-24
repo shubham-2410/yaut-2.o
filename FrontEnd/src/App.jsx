@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import React, { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -20,12 +20,16 @@ import DayAvailability from "./pages/DayAvailability";
 import CreateYacht from "./pages/CreateYacht";
 import AllYachts from "./pages/AllYachts";
 import AllEmployees from "./pages/AllEmployees";
+import { Home } from "./pages/Home";
 
 function App() {
-  const [user, setUser] = useState(null);
+  // Initialize user immediately from localStorage
+  const storedUser = localStorage.getItem("user");
+  const [user, setUser] = useState(storedUser ? JSON.parse(storedUser) : null);
+
+  const role = user?.type?.toLowerCase();
 
   const handleLogin = (data) => {
-    // Save user + token
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
   };
@@ -36,34 +40,24 @@ function App() {
     localStorage.removeItem("authToken");
   };
 
-  // Restore user from localStorage
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem("user");
-      }
-    }
-  }, []);
-
-  // Normalize role to lowercase for consistent checks
-  const role = user?.type?.toLowerCase();
-
   return (
-    <Router>
+    <>
       {user && <Navbar user={user} onLogout={handleLogout} />}
 
       <Routes>
         {/* Public route */}
-        {!user && (
-          <Route
-            path="/"
-            element={<Login onLogin={handleLogin} user={user} />}
-          />
-        )}
+        <Route
+          path="/"
+          element={user ? <Navigate to="/homr" /> : <Login onLogin={handleLogin} />}
+        />
 
+        <Route
+          path="/home"
+          element={
+            <Home></Home>
+          }
+        />
+        
         {/* Protected routes */}
         <Route
           path="/admin"
@@ -100,11 +94,7 @@ function App() {
           path="/all-yachts"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <AllYachts />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <AllYachts /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -113,11 +103,7 @@ function App() {
           path="/all-employees"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <AllEmployees />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <AllEmployees /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -149,16 +135,11 @@ function App() {
           }
         />
 
-        {/* ✅ Availability route (admin + backdesk) */}
         <Route
           path="/availability"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <Availability />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <Availability /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -167,11 +148,7 @@ function App() {
           path="/availability/:yachtName/:date"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <DayAvailability />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <DayAvailability /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -180,11 +157,7 @@ function App() {
           path="/create-customer"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <CreateCustomer />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <CreateCustomer /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -193,11 +166,7 @@ function App() {
           path="/create-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? (
-                <CreateBooking />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk"].includes(role) ? <CreateBooking /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -206,22 +175,16 @@ function App() {
           path="/update-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role) ? (
-                <UpdateBooking />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk", "onsite"].includes(role) ? <UpdateBooking /> : <NotFound />}
             </ProtectedRoute>
           }
         />
 
-        {/* Fallback */}
+        {/* Fallback route */}
         <Route path="*" element={<NotFound user={user} />} />
       </Routes>
-    </Router>
+    </>
   );
 }
 
 export default App;
-
-

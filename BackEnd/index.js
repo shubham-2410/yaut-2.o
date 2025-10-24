@@ -17,7 +17,7 @@ dotenv.config();
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173",//"https://yaut-frontend.vercel.app", // your frontend origin
+    origin: "https://yaut-frontend-20.vercel.app", //"http://localhost:5173", // your frontend origin
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // 👈 allow cookies / authorization headers
