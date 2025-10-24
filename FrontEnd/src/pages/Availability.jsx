@@ -11,8 +11,10 @@ function Availability() {
   const [selectedYacht, setSelectedYacht] = useState(null);
   const [detailedYacht, setDetailedYacht] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const navigate = useNavigate();
+  const [filterDate, setFilterDate] = useState(""); // ✅ Added
+  const [filterStatus, setFilterStatus] = useState(""); // ✅ Added
 
+  const navigate = useNavigate();
   const token = localStorage.getItem("authToken");
 
   // 🧭 Fetch weekly availability summary
@@ -51,7 +53,9 @@ function Availability() {
                 : y.photos && y.photos.length > 0
                 ? y.photos
                 : ["/default-yacht.jpg"],
-            email: `${(y.name || y.yachtName)?.toLowerCase()?.replace(/\s/g, "")}@gmail.com`,
+            email: `${(y.name || y.yachtName)
+              ?.toLowerCase()
+              ?.replace(/\s/g, "")}@gmail.com`,
             days: y.availability.map((a) => ({
               day: new Date(a.date).toLocaleDateString("en-US", {
                 weekday: "short",
@@ -80,18 +84,26 @@ function Availability() {
     if (token) fetchAvailability();
   }, [token]);
 
-  // 📅 Navigate to specific date's availability
+  // 🧭 Handle date cell click
   const handleDayClick = (yacht, day) => {
     if (!yacht || !day) return;
-    navigate(
-      `/availability/${encodeURIComponent(yacht.name)}/${day.date}`,
-      {
-        state: { yachtId: yacht.yachtId, yachtName: yacht.name, day },
-      }
-    );
+
+    const today = new Date();
+    const clickedDate = new Date(day.date);
+    today.setHours(0, 0, 0, 0);
+    clickedDate.setHours(0, 0, 0, 0);
+
+    if (clickedDate < today) {
+      alert("You cannot book for past dates.");
+      return;
+    }
+
+    navigate(`/availability/${encodeURIComponent(yacht.name)}/${day.date}`, {
+      state: { yachtId: yacht.yachtId, yachtName: yacht.name, day },
+    });
   };
 
-  // 🔍 Fetch detailed yacht info for modal
+  // 🔍 Handle yacht details modal
   const handleYachtClick = async (yacht) => {
     setSelectedYacht(yacht);
     setLoadingDetails(true);
@@ -107,8 +119,6 @@ function Availability() {
           yachtPhotos:
             details.yachtPhotos && details.yachtPhotos.length > 0
               ? details.yachtPhotos
-              : details.photos && details.photos.length > 0
-              ? details.photos
               : ["/default-yacht.jpg"],
           currentImageIndex: 0,
         });
@@ -118,8 +128,6 @@ function Availability() {
           yachtPhotos:
             yacht.yachtPhotos && yacht.yachtPhotos.length > 0
               ? yacht.yachtPhotos
-              : yacht.photos && yacht.photos.length > 0
-              ? yacht.photos
               : ["/default-yacht.jpg"],
           currentImageIndex: 0,
         });
@@ -136,22 +144,51 @@ function Availability() {
     setDetailedYacht(null);
   };
 
+  // 🎛️ Filter UI Handlers
+  const handleFilter = () => {
+    console.log(
+      "Filter applied for date:",
+      filterDate,
+      "status:",
+      filterStatus
+    );
+    // In future — you can add backend filtering logic here
+  };
+
+  const handleClear = () => {
+    setFilterDate("");
+    setFilterStatus("");
+  };
+
   return (
     <div className="container mt-4">
       <h3 className="text-center mb-3">Yacht Availability</h3>
 
-      {/* Week Range */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <button className="btn btn-outline-primary btn-sm" disabled>
-          &lt;
+      {/* 🗓️ Week Range */}
+      <div className="text-center mb-3">
+        <h6 className="mb-0 fw-semibold">{selectedWeek}</h6>
+      </div>
+
+      {/* Filters Row */}
+      <div className="d-flex flex-wrap gap-2 mb-4">
+        <input
+          type="date"
+          className="form-control"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+          style={{ maxWidth: "200px" }}
+          min={new Date().toISOString().split("T")[0]} // ⬅️ Prevent past dates
+        />
+
+        <button className="btn btn-primary" onClick={handleFilter}>
+          Filter
         </button>
-        <h6 className="mb-0">{selectedWeek}</h6>
-        <button className="btn btn-outline-primary btn-sm" disabled>
-          &gt;
+        <button className="btn btn-secondary" onClick={handleClear}>
+          Clear
         </button>
       </div>
 
-      {/* Loader */}
+      {/* 📊 Availability Table */}
       {loading ? (
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
@@ -221,119 +258,130 @@ function Availability() {
         ))
       )}
 
-      {/* Yacht Details Modal */}
-      {/* Yacht Details Modal */}
-{selectedYacht && detailedYacht && (
-  <div
-    className="modal fade show"
-    style={{ display: "block", backgroundColor: "rgba(0,0,0,0.6)" }}
-    onClick={closeModal}
-  >
-    <div
-      className="modal-dialog modal-dialog-centered"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="modal-content">
-        <div className="modal-header bg-primary text-white">
-          <h5 className="modal-title text-center w-100">
-            {selectedYacht.name} — Details
-          </h5>
-          <button
-            type="button"
-            className="btn-close btn-close-white"
-            onClick={closeModal}
-          ></button>
-        </div>
+      {/* 📋 Yacht Details Modal */}
+      {selectedYacht && detailedYacht && (
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={closeModal}
+        >
+          <div
+            className="modal-dialog modal-dialog-centered"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title text-center w-100">
+                  {selectedYacht.name} — Details
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={closeModal}
+                ></button>
+              </div>
 
-        <div className="modal-body text-center">
-          {loadingDetails ? (
-            <div className="text-center py-4">
-              <div className="spinner-border text-primary" role="status"></div>
-              <p className="mt-2">Loading details...</p>
-            </div>
-          ) : (
-            <>
-              {/* Image Slider */}
-              <div className="position-relative mb-3">
-                <img
-                  src={
-                    detailedYacht.yachtPhotos[detailedYacht.currentImageIndex] ||
-                    "/default-yacht.jpg"
-                  }
-                  alt="Yacht"
-                  className="d-block mx-auto rounded"
-                  style={{ height: "200px", width: "100%", maxWidth: "300px", objectFit: "cover" }}
-                />
-
-                {/* Arrows for multiple images */}
-                {detailedYacht.yachtPhotos.length > 1 && (
+              <div className="modal-body text-center">
+                {loadingDetails ? (
+                  <div className="text-center py-4">
+                    <div
+                      className="spinner-border text-primary"
+                      role="status"
+                    ></div>
+                    <p className="mt-2">Loading details...</p>
+                  </div>
+                ) : (
                   <>
-                    <button
-                      className="btn btn-dark btn-sm position-absolute top-50 start-0 translate-middle-y"
-                      style={{ opacity: 0.7, padding: "6px 12px", fontSize: "18px" }}
-                      onClick={() =>
-                        setDetailedYacht((prev) => ({
-                          ...prev,
-                          currentImageIndex:
-                            (prev.currentImageIndex - 1 + prev.yachtPhotos.length) %
-                            prev.yachtPhotos.length,
-                        }))
-                      }
+                    <div className="position-relative mb-3">
+                      <img
+                        src={
+                          detailedYacht.yachtPhotos[
+                            detailedYacht.currentImageIndex
+                          ] || "/default-yacht.jpg"
+                        }
+                        alt="Yacht"
+                        className="d-block mx-auto rounded"
+                        style={{
+                          height: "200px",
+                          width: "100%",
+                          maxWidth: "300px",
+                          objectFit: "cover",
+                        }}
+                      />
+                      {detailedYacht.yachtPhotos.length > 1 && (
+                        <>
+                          <button
+                            className="btn btn-dark btn-sm position-absolute top-50 start-0 translate-middle-y"
+                            style={{ opacity: 0.7 }}
+                            onClick={() =>
+                              setDetailedYacht((prev) => ({
+                                ...prev,
+                                currentImageIndex:
+                                  (prev.currentImageIndex -
+                                    1 +
+                                    prev.yachtPhotos.length) %
+                                  prev.yachtPhotos.length,
+                              }))
+                            }
+                          >
+                            ‹
+                          </button>
+                          <button
+                            className="btn btn-dark btn-sm position-absolute top-50 end-0 translate-middle-y"
+                            style={{ opacity: 0.7 }}
+                            onClick={() =>
+                              setDetailedYacht((prev) => ({
+                                ...prev,
+                                currentImageIndex:
+                                  (prev.currentImageIndex + 1) %
+                                  prev.yachtPhotos.length,
+                              }))
+                            }
+                          >
+                            ›
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <table
+                      className="table table-bordered mx-auto"
+                      style={{ maxWidth: "300px" }}
                     >
-                      ‹
-                    </button>
-                    <button
-                      className="btn btn-dark btn-sm position-absolute top-50 end-0 translate-middle-y"
-                      style={{ opacity: 0.7, padding: "6px 12px", fontSize: "18px" }}
-                      onClick={() =>
-                        setDetailedYacht((prev) => ({
-                          ...prev,
-                          currentImageIndex:
-                            (prev.currentImageIndex + 1) % prev.yachtPhotos.length,
-                        }))
-                      }
-                    >
-                      ›
-                    </button>
+                      <tbody>
+                        <tr>
+                          <th>Capacity</th>
+                          <td>{detailedYacht.capacity || "—"}</td>
+                        </tr>
+                        <tr>
+                          <th>Status</th>
+                          <td>
+                            <span
+                              className={`badge ${
+                                detailedYacht.status === "active"
+                                  ? "bg-success"
+                                  : "bg-danger"
+                              }`}
+                            >
+                              {detailedYacht.status}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </>
                 )}
               </div>
 
-              {/* Info Table */}
-              <table className="table table-bordered mx-auto" style={{ maxWidth: "300px" }}>
-                <tbody>
-                  <tr>
-                    <th>Capacity</th>
-                    <td>{detailedYacht.capacity || "—"}</td>
-                  </tr>
-                  <tr>
-                    <th>Status</th>
-                    <td>
-                      <span
-                        className={`badge ${
-                          detailedYacht.status === "active" ? "bg-success" : "bg-danger"
-                        }`}
-                      >
-                        {detailedYacht.status}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </>
-          )}
+              <div className="modal-footer justify-content-center">
+                <button className="btn btn-secondary" onClick={closeModal}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="modal-footer justify-content-center">
-          <button className="btn btn-secondary" onClick={closeModal}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getDayAvailability, lockSlot, releaseSlot } from "../services/operations/availabilityAPI";
-// import { createBooking } from "../services/operations/bookingAPI";
+import {
+  getDayAvailability,
+  lockSlot,
+  releaseSlot,
+} from "../services/operations/availabilityAPI";
 
 function DayAvailability() {
   const location = useLocation();
@@ -26,7 +29,7 @@ function DayAvailability() {
     );
   }
 
-  // 🧠 Build timeline
+  // 🧠 Build timeline (restrict past times for today's date)
   const buildTimeline = (bookedSlots, lockedSlots) => {
     const allBusy = [
       ...(bookedSlots || []).map((b) => ({ ...b, type: "booked" })),
@@ -35,6 +38,20 @@ function DayAvailability() {
 
     const result = [];
     let currentStart = "00:00";
+
+    const today = new Date();
+    const selectedDate = new Date(day.date);
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    // 🕒 If today, restrict past times
+    if (selectedDate.getTime() === today.getTime()) {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${hours}:${minutes}`;
+      if (currentTime > currentStart) currentStart = currentTime;
+    }
 
     for (const slot of allBusy) {
       if (slot.start > currentStart)
@@ -47,14 +64,25 @@ function DayAvailability() {
     if (currentStart < "23:59")
       result.push({ start: currentStart, end: "23:59", type: "free" });
 
-    return result;
+    // ✅ Add flag for past slots
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+
+    return result.map((slot) => {
+      const slotStart = slot.start;
+      const isToday = selectedDate.getTime() === today.getTime();
+      const isPast = isToday && slotStart < currentTime && slot.type === "free";
+      return { ...slot, isPast };
+    });
   };
 
   // 🧾 Fetch availability
   const fetchTimeline = async () => {
     try {
       setLoading(true);
-      console.log("🚤 Yacht:", yachtName, yachtId, day.date);
       const res = await getDayAvailability(yachtId, day.date, token);
 
       if (res?.success) {
@@ -70,6 +98,7 @@ function DayAvailability() {
 
   useEffect(() => {
     fetchTimeline();
+    // eslint-disable-next-line
   }, [yachtId, day.date]);
 
   // 📅 Handle booking time inputs
@@ -80,15 +109,21 @@ function DayAvailability() {
 
   // 🧭 Handle slot click
   const handleSlotClick = (slot) => {
+    if (slot.isPast) return; // ⛔ disable past slots
+
     setSelectedSlot(slot);
     setBooking({ start: "", end: "" });
-    document.activeElement?.blur(); // avoid aria-hidden warning
+    document.activeElement?.blur();
 
     if (slot.type === "free") {
-      const modal = new window.bootstrap.Modal(document.getElementById("lockModal"));
+      const modal = new window.bootstrap.Modal(
+        document.getElementById("lockModal")
+      );
       modal.show();
     } else if (slot.type === "locked") {
-      const modal = new window.bootstrap.Modal(document.getElementById("confirmModal"));
+      const modal = new window.bootstrap.Modal(
+        document.getElementById("confirmModal")
+      );
       modal.show();
     } else if (slot.type === "booked") {
       alert("⛔ This slot is already booked and cannot be modified.");
@@ -99,13 +134,19 @@ function DayAvailability() {
   const handleLockSlot = async (e) => {
     e.preventDefault();
     try {
-      console.log("In handle lock ")
-      document.activeElement?.blur();
-      const res = await lockSlot(yachtId, day.date, booking.start, booking.end, token);
-      console.log("Lock Slot res -- ", res)
+      const res = await lockSlot(
+        yachtId,
+        day.date,
+        booking.start,
+        booking.end,
+        token
+      );
+
       if (res?.success) {
         alert("✅ Slot locked successfully!");
-        const modal = window.bootstrap.Modal.getInstance(document.getElementById("lockModal"));
+        const modal = window.bootstrap.Modal.getInstance(
+          document.getElementById("lockModal")
+        );
         modal?.hide();
         fetchTimeline();
       } else {
@@ -120,12 +161,19 @@ function DayAvailability() {
   // 🔓 Release a locked slot
   const handleReleaseLock = async () => {
     try {
-      document.activeElement?.blur();
-      const res = await releaseSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
-      console.log("Lock response : ", res)
+      const res = await releaseSlot(
+        yachtId,
+        day.date,
+        selectedSlot.start,
+        selectedSlot.end,
+        token
+      );
+
       if (res?.success) {
         alert("🔓 Slot released successfully!");
-        const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+        const modal = window.bootstrap.Modal.getInstance(
+          document.getElementById("confirmModal")
+        );
         modal?.hide();
         fetchTimeline();
       } else {
@@ -138,49 +186,18 @@ function DayAvailability() {
   };
 
   // ✅ Confirm booking
-  // const handleConfirmBooking = async (e) => {
-  //   e.preventDefault();
-  //   try {
-  //     document.activeElement?.blur();
-
-  //     const payload = {
-  //       yachtId,
-  //       date: day.date,
-  //       startTime: selectedSlot.start,
-  //       endTime: selectedSlot.end,
-  //       quotedAmount: 0,
-  //       customerId: "replace_with_customer_id", // set actual customer ID
-  //     };
-
-  //     const res = await createBooking(payload, token);
-
-  //     if (res) {
-  //       alert("🎉 Booking confirmed!");
-  //       const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
-  //       modal?.hide();
-  //       fetchTimeline();
-  //     }
-  //   } catch (err) {
-  //     console.error("Booking confirm error:", err);
-  //     alert("Failed to confirm booking");
-  //   }
-  // };
-
-  // ✅ Confirm booking — navigate to CreateBooking with prefilled data
   const handleConfirmBooking = (e) => {
     e.preventDefault();
-    document.activeElement?.blur();
-
     if (!selectedSlot) {
       alert("No slot selected");
       return;
     }
 
-    // Close modal
-    const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
+    const modal = window.bootstrap.Modal.getInstance(
+      document.getElementById("confirmModal")
+    );
     modal?.hide();
 
-    // Navigate with prefilled state
     navigate("/create-booking", {
       state: {
         yachtId,
@@ -192,11 +209,12 @@ function DayAvailability() {
     });
   };
 
-
-
   return (
     <div className="container mt-4">
-      <button className="btn btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-3"
+        onClick={() => navigate(-1)}
+      >
         ← Back
       </button>
 
@@ -204,7 +222,7 @@ function DayAvailability() {
         {yachtName} — {day.day}, {day.date}
       </h4>
       <hr />
-
+    
       {loading ? (
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
@@ -217,33 +235,54 @@ function DayAvailability() {
             <div
               key={i}
               onClick={() => handleSlotClick(slot)}
-              className={`p-3 mb-2 rounded text-center fw-semibold cursor-pointer ${slot.type === "booked"
-                ? "bg-danger text-white"
-                : slot.type === "locked"
+              className={`p-3 mb-2 rounded text-center fw-semibold ${
+                slot.isPast
+                  ? "bg-secondary text-white" // ⏳ past slots
+                  : slot.type === "booked"
+                  ? "bg-danger text-white"
+                  : slot.type === "locked"
                   ? "bg-warning text-dark"
                   : "bg-success text-white"
-                }`}
-              style={{ cursor: "pointer" }}
+              }`}
+              style={{
+                cursor: slot.isPast ? "not-allowed" : "pointer",
+                opacity: slot.isPast ? 0.6 : 1,
+              }}
             >
-              {slot.type.charAt(0).toUpperCase() + slot.type.slice(1)} — {slot.start} to {slot.end}
+              {slot.isPast
+                ? `Past — ${slot.start} to ${slot.end}`
+                : `${
+                    slot.type.charAt(0).toUpperCase() + slot.type.slice(1)
+                  } — ${slot.start} to ${slot.end}`}
             </div>
           ))}
         </div>
       )}
 
       {/* 🔒 Lock Modal */}
-      <div className="modal fade" id="lockModal" tabIndex="-1" aria-hidden="true">
-        <div className="modal-dialog">
+      <div
+        className="modal fade"
+        id="lockModal"
+        tabIndex="-1"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <form onSubmit={handleLockSlot}>
               <div className="modal-header">
                 <h5 className="modal-title">Lock Time Slot</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body">
                 {selectedSlot && (
                   <>
-                    <p>Free slot: {selectedSlot.start} — {selectedSlot.end}</p>
+                    <p>
+                      Free slot: {selectedSlot.start} — {selectedSlot.end}
+                    </p>
                     <input
                       type="time"
                       className="form-control mb-2"
@@ -259,7 +298,7 @@ function DayAvailability() {
                       className="form-control"
                       name="end"
                       value={booking.end}
-                      min={booking.start}
+                      min={booking.start || selectedSlot.start}
                       max={selectedSlot.end}
                       onChange={handleBookingChange}
                       required
@@ -268,7 +307,11 @@ function DayAvailability() {
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-warning">
@@ -281,16 +324,29 @@ function DayAvailability() {
       </div>
 
       {/* ✅ Confirm Booking Modal */}
-      <div className="modal fade" id="confirmModal" tabIndex="-1" aria-hidden="true">
-        <div className="modal-dialog">
+      <div
+        className="modal fade"
+        id="confirmModal"
+        tabIndex="-1"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <form onSubmit={handleConfirmBooking}>
               <div className="modal-header">
                 <h5 className="modal-title">Confirm Booking</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body">
-                {selectedSlot && <p>Locked slot: {selectedSlot.start} — {selectedSlot.end}</p>}
+                {selectedSlot && (
+                  <p>
+                    Locked slot: {selectedSlot.start} — {selectedSlot.end}
+                  </p>
+                )}
               </div>
               <div className="modal-footer">
                 <button
