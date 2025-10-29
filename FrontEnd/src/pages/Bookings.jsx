@@ -72,6 +72,7 @@ function Bookings({ user }) {
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
           style={{ maxWidth: "200px" }}
+          min={new Date().toISOString().split("T")[0]} // ⬅️ Prevent past dates
         />
         <select
           className="form-select"

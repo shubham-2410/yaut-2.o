@@ -193,6 +193,8 @@ function DayAvailability() {
 
   // ---------- Slot interactions ----------
   const handleSlotClick = (slot) => {
+    if (slot.isPast) return; // ⛔ disable past slots
+
     setSelectedSlot(slot);
     document.activeElement?.blur();
 
@@ -265,7 +267,10 @@ function DayAvailability() {
   // ---------- Render ----------
   return (
     <div className="container mt-4">
-      <button className="btn btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-3"
+        onClick={() => navigate(-1)}
+      >
         ← Back
       </button>
 
@@ -273,7 +278,7 @@ function DayAvailability() {
         {yachtName} — {day.day}, {day.date}
       </h4>
       <hr />
-
+    
       {loading ? (
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
@@ -309,7 +314,11 @@ function DayAvailability() {
             <form onSubmit={handleLockSlot}>
               <div className="modal-header">
                 <h5 className="modal-title">Lock Time Slot</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body">
                 {selectedSlot && (
@@ -320,7 +329,11 @@ function DayAvailability() {
                 {/* <p className="text-muted small">Slot time is fixed. It will be used as-is for locking.</p> */}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-warning">
@@ -339,7 +352,11 @@ function DayAvailability() {
             <form onSubmit={handleConfirmBooking}>
               <div className="modal-header">
                 <h5 className="modal-title">Confirm Booking</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body">
                 {selectedSlot && (
