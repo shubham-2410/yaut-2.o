@@ -82,6 +82,8 @@ function Availability() {
 
   // 📅 Navigate to specific date's availability
   const handleDayClick = (yacht, day) => {
+    console.log("Here is yaut " , yacht )
+
     if (!yacht || !day) return;
     navigate(
       `/availability/${encodeURIComponent(yacht.name)}/${day.date}`,

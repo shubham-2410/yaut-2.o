@@ -30,4 +30,8 @@ export const yachtSchema = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
 
   company: z.string().optional(),
+  sailStartTime: z.string().min(1, "Start Time is required"),
+  sailEndTime: z.string().min(1, "End Time is required"),
+  duration: z.string().min(1, "Sail Duration is required"),
+  specialSlotTime: z.string().min(1, "Special Duration").optional()
 });

@@ -11,6 +11,10 @@ function CreateYacht() {
     price: "",
     maxSellingPrice: "",
     sellingPrice: "",
+    sailStartTime: "",
+    sailEndTime: "",
+    duration: "",
+    specialSlotTime: null,
     photos: [],
     status: "active",
   });
@@ -25,7 +29,7 @@ function CreateYacht() {
 
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
-    setYacht((prev) => ({ ...prev, photos: files })); // keep File objects
+    setYacht((prev) => ({ ...prev, photos: files }));
   };
 
   const handleSubmit = async (e) => {
@@ -36,7 +40,6 @@ function CreateYacht() {
     try {
       const token = localStorage.getItem("authToken");
 
-      // Ensure numeric values are numbers
       const payload = {
         ...yacht,
         capacity: Number(yacht.capacity),
@@ -44,12 +47,15 @@ function CreateYacht() {
         price: Number(yacht.price),
         maxSellingPrice: Number(yacht.maxSellingPrice),
         sellingPrice: Number(yacht.sellingPrice),
+        sailStartTime: yacht.sailStartTime,
+        sailEndTime: yacht.sailEndTime,
+        duration: yacht.duration
       };
 
       await createYacht(payload, token);
 
       alert("✅ Yacht created successfully!");
-      navigate("/admin"); // redirect to admin dashboard
+      navigate("/admin");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create yacht");
     } finally {
@@ -69,6 +75,7 @@ function CreateYacht() {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <form className="row g-3" onSubmit={handleSubmit}>
+        {/* Yacht Name */}
         <div className="col-12">
           <label className="form-label fw-bold">Yacht Name</label>
           <input
@@ -81,6 +88,7 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Capacity */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Capacity</label>
           <input
@@ -93,6 +101,7 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Running Cost */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Running Cost</label>
           <input
@@ -105,6 +114,7 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Price */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Price</label>
           <input
@@ -117,6 +127,7 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Max Selling Price */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Max Selling Price</label>
           <input
@@ -129,6 +140,7 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Selling Price */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Selling Price</label>
           <input
@@ -141,6 +153,58 @@ function CreateYacht() {
           />
         </div>
 
+        {/* Sail Start Time */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Sail Start Time</label>
+          <input
+            type="time"
+            name="sailStartTime"
+            className="form-control border border-dark text-dark"
+            value={yacht.sailStartTime}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* Sail End Time */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Sail End Time</label>
+          <input
+            type="time"
+            name="sailEndTime"
+            className="form-control border border-dark text-dark"
+            value={yacht.sailEndTime}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* Slot Duration*/}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Slot Duration</label>
+          <input
+            type="time"
+            name="duration"
+            className="form-control border border-dark text-dark"
+            value={yacht.duration}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* Special Slot (optional) */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Special Slot (optional)</label>
+          <input
+            type="time"
+            name="specialSlotTime"
+            className="form-control border border-dark text-dark"
+            value={yacht.specialSlotTime}
+            onChange={handleChange}
+          />
+        </div>
+
+        {/* Status */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Status</label>
           <select
@@ -154,11 +218,13 @@ function CreateYacht() {
           </select>
         </div>
 
+        {/* Upload Photos */}
         <div className="col-12">
           <label className="form-label fw-bold">Upload Photos</label>
           <input type="file" multiple className="form-control" onChange={handlePhotoUpload} />
         </div>
 
+        {/* Submit */}
         <div className="col-12 text-center">
           <button type="submit" className="btn btn-primary w-100" disabled={loading}>
             {loading ? "Creating..." : "Create Yacht"}

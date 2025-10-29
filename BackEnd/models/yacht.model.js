@@ -8,6 +8,25 @@ const yachtSchema = new mongoose.Schema(
         price: { type: Number, required: true },
         sellingPrice: { type: Number, required: true },
         yachtPhotos: [String],
+        sailStartTime: {
+            type: String,
+            required: true,
+            match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Start Time must be in HH:MM format']
+        },
+        sailEndTime: {
+            type: String,
+            required: true,
+            match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'End Time must be in HH:MM format']
+        },
+        duration: {
+            type: String,
+            required: true,
+            match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Duration']
+        },
+        specialSlotTime: {
+            type: String,
+            match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Special Slot Time must be in HH:MM format']
+        },
         company: {
             type: String,
             required: true

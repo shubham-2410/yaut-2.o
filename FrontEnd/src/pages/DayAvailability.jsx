@@ -1,7 +1,8 @@
+// DayAvailability.jsx
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getDayAvailability, lockSlot, releaseSlot } from "../services/operations/availabilityAPI";
-// import { createBooking } from "../services/operations/bookingAPI";
+import { getYachtById } from "../services/operations/yautAPI";
 
 function DayAvailability() {
   const location = useLocation();
@@ -11,10 +12,11 @@ function DayAvailability() {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [booking, setBooking] = useState({ start: "", end: "" });
+  const [yacht, setYacht] = useState(null);
 
   const token = localStorage.getItem("authToken");
 
+  // SAFETY: ensure we have required state
   if (!day || !yachtId) {
     return (
       <div className="container mt-5 text-center">
@@ -26,43 +28,159 @@ function DayAvailability() {
     );
   }
 
-  // 🧠 Build timeline
-  const buildTimeline = (bookedSlots, lockedSlots) => {
-    const allBusy = [
-      ...(bookedSlots || []).map((b) => ({ ...b, type: "booked" })),
-      ...(lockedSlots || []).map((l) => ({ ...l, type: "locked" })),
-    ].sort((a, b) => a.start.localeCompare(b.start));
-
-    const result = [];
-    let currentStart = "00:00";
-
-    for (const slot of allBusy) {
-      if (slot.start > currentStart)
-        result.push({ start: currentStart, end: slot.start, type: "free" });
-
-      result.push(slot);
-      currentStart = slot.end;
-    }
-
-    if (currentStart < "23:59")
-      result.push({ start: currentStart, end: "23:59", type: "free" });
-
-    return result;
+  // ---------- Helpers ----------
+  const hhmmToMinutes = (time = "00:00") => {
+    // defensive: if time missing or not string, return 0
+    if (!time || typeof time !== "string") return 0;
+    const parts = time.split(":").map((p) => Number(p));
+    if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return 0;
+    const [h, m] = parts;
+    return h * 60 + m;
   };
 
-  // 🧾 Fetch availability
+  const minutesToHHMM = (minutes) => {
+    const m = Number(minutes) || 0;
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  };
+
+  // Build slot list for a yacht (handles special slot splitting)
+  const buildSlotsForYacht = (yachtObj) => {
+    if (!yachtObj) return [];
+    console.log("Here is yacht obj ", yachtObj)
+    // support both slotDurationMinutes and duration (the backend uses various names)
+    const rawDuration = yachtObj.slotDurationMinutes || yachtObj.duration;
+    if (!rawDuration) return [];
+
+    // Parse duration (it can be "HH:MM" or a number of minutes)
+    let durationMinutes = 0;
+    if (typeof rawDuration === "string" && rawDuration.includes(":")) {
+      const [dh, dm] = rawDuration.split(":").map(Number);
+      durationMinutes = (Number(dh) || 0) * 60 + (Number(dm) || 0);
+    } else {
+      durationMinutes = Number(rawDuration) || 0;
+    }
+    if (durationMinutes <= 0) return [];
+
+    // sailing window
+    const startMin = hhmmToMinutes(yachtObj.sailStartTime);
+    const endMin = hhmmToMinutes(yachtObj.sailEndTime);
+    if (endMin <= startMin) return [];
+
+    // special slot (optional) - note property name in your examples: specialSlotTime
+    const specialTimeString = yachtObj.specialSlot || yachtObj.specialSlotTime || null;
+    const specialMin = specialTimeString ? hhmmToMinutes(specialTimeString) : null;
+    const specialIsValid = specialMin !== null && specialMin >= startMin && specialMin < endMin;
+
+    const slots = [];
+    let cursor = startMin;
+
+    // iterate creating slots; when special lands inside a slot, split as required
+    while (cursor < endMin) {
+      const slotEndCandidate = cursor + durationMinutes;
+      // If special is inside this candidate interval and not exactly at cursor
+      if (
+        specialIsValid &&
+        specialMin > cursor &&
+        specialMin < Math.min(slotEndCandidate, endMin)
+      ) {
+        // first part: cursor -> specialMin (only if > cursor)
+        if (specialMin > cursor) {
+          slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(specialMin), meta: "regular-split" });
+        }
+
+        // special slot: specialMin -> specialMin + duration (may be truncated at endMin)
+        const specialEnd = Math.min(specialMin + durationMinutes, endMin);
+        slots.push({ start: minutesToHHMM(specialMin), end: minutesToHHMM(specialEnd), meta: "special" });
+
+        // advance cursor to end of special-derived slot
+        cursor = specialEnd;
+
+        // continue main loop
+        continue;
+      }
+
+      // Otherwise produce normal slot (may be truncated at endMin)
+      const next = Math.min(slotEndCandidate, endMin);
+      slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next), meta: "regular" });
+      cursor = next;
+    }
+
+    // dedupe and sort just in case
+    const seen = new Set();
+    const unique = slots.filter((s) => {
+      const key = `${s.start}-${s.end}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    unique.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
+    return unique; // array of {start, end, meta}
+  };
+
+  // combine generated free slots with booked/locked from API
+  const buildTimeline = (yachtObj, bookedSlots = [], lockedSlots = []) => {
+    const freeSlots = buildSlotsForYacht(yachtObj);
+    // Normalize incoming booked/locked slots structure:
+    // bookedSlots and lockedSlots from API may be arrays of {startTime,start,endTime,end,...} or {start,end}
+    // We'll map them to {start,end,type}
+    const normalizedBusy = [
+      ...(bookedSlots || []).map((b) => ({ start: b.startTime || b.start, end: b.endTime || b.end, type: "booked" })),
+      ...(lockedSlots || []).map((l) => ({ start: l.startTime || l.start, end: l.endTime || l.end, type: "locked" })),
+    ];
+
+    // For each generated free slot, check if there is any busy overlap.
+    // If any busy record overlaps (partial or full), mark the generated slot as busy with that type.
+    // Priority: if both booked & locked overlap same slot choose booked (booked > locked).
+    const timelineSlots = freeSlots.map((slot) => {
+      // find overlapping busy items
+      const overlaps = normalizedBusy.filter((b) => {
+        // overlap when: not (b.end <= slot.start || b.start >= slot.end)
+        return !(hhmmToMinutes(b.end) <= hhmmToMinutes(slot.start) || hhmmToMinutes(b.start) >= hhmmToMinutes(slot.end));
+      });
+
+      if (!overlaps || overlaps.length === 0) {
+        return { ...slot, type: "free" };
+      }
+
+      // If any overlap is 'booked', prefer that; else 'locked'
+      const hasBooked = overlaps.some((o) => o.type === "booked");
+      return { ...slot, type: hasBooked ? "booked" : "locked" };
+    });
+
+    return timelineSlots;
+  };
+
+  // ---------- Data fetch ----------
   const fetchTimeline = async () => {
     try {
       setLoading(true);
-      console.log("🚤 Yacht:", yachtName, yachtId, day.date);
-      const res = await getDayAvailability(yachtId, day.date, token);
 
-      if (res?.success) {
-        const timelineData = buildTimeline(res.bookedSlots, res.lockedSlots);
-        setTimeline(timelineData);
+      // get yacht details
+      const yachtRes = await getYachtById(yachtId, token);
+      // support both axios response and helper-returned object
+      const yachtData = yachtRes?.data?.yacht ?? yachtRes?.yacht ?? yachtRes;
+      setYacht(yachtData);
+
+      // get day availability (bookedSlots, lockedSlots)
+      const dayResRaw = await getDayAvailability(yachtId, day.date, token);
+      // normalize dayRes: it might be axios response, or plain object
+      const dayRes = dayResRaw?.data ?? dayResRaw;
+
+      // if success and yachtData exists, build timeline
+      if ((dayRes?.success || dayRes?.bookedSlots !== undefined) && yachtData) {
+        const booked = dayRes.bookedSlots || [];
+        const locked = dayRes.lockedSlots || [];
+        const built = buildTimeline(yachtData, booked, locked);
+        setTimeline(built);
+      } else {
+        setTimeline([]);
       }
     } catch (err) {
-      console.error("Failed to fetch timeline:", err);
+      console.error("❌ Failed to fetch timeline:", err);
+      setTimeline([]);
     } finally {
       setLoading(false);
     }
@@ -70,121 +188,73 @@ function DayAvailability() {
 
   useEffect(() => {
     fetchTimeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yachtId, day.date]);
 
-  // 📅 Handle booking time inputs
-  const handleBookingChange = (e) => {
-    const { name, value } = e.target;
-    setBooking((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // 🧭 Handle slot click
+  // ---------- Slot interactions ----------
   const handleSlotClick = (slot) => {
     setSelectedSlot(slot);
-    setBooking({ start: "", end: "" });
-    document.activeElement?.blur(); // avoid aria-hidden warning
+    document.activeElement?.blur();
 
     if (slot.type === "free") {
-      const modal = new window.bootstrap.Modal(document.getElementById("lockModal"));
-      modal.show();
+      new window.bootstrap.Modal(document.getElementById("lockModal")).show();
     } else if (slot.type === "locked") {
-      const modal = new window.bootstrap.Modal(document.getElementById("confirmModal"));
-      modal.show();
-    } else if (slot.type === "booked") {
-      alert("⛔ This slot is already booked and cannot be modified.");
+      new window.bootstrap.Modal(document.getElementById("confirmModal")).show();
+    } else {
+      // booked
+      alert("⛔ This slot is already booked.");
     }
   };
 
-  // 🔒 Lock a slot
+  // Lock a slot (uses fixed slot times; user cannot edit times)
   const handleLockSlot = async (e) => {
     e.preventDefault();
+    if (!selectedSlot) return;
+
     try {
-      console.log("In handle lock ")
-      document.activeElement?.blur();
-      const res = await lockSlot(yachtId, day.date, booking.start, booking.end, token);
-      console.log("Lock Slot res -- ", res)
+      const res = await lockSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
       if (res?.success) {
         alert("✅ Slot locked successfully!");
-        const modal = window.bootstrap.Modal.getInstance(document.getElementById("lockModal"));
-        modal?.hide();
+        window.bootstrap.Modal.getInstance(document.getElementById("lockModal"))?.hide();
         fetchTimeline();
       } else {
         alert(res?.message || "Failed to lock slot");
       }
     } catch (err) {
-      console.error("Lock slot error:", err);
+      console.error("Lock error:", err);
       alert("Error locking slot");
     }
   };
 
-  // 🔓 Release a locked slot
+  // Release lock
   const handleReleaseLock = async () => {
+    if (!selectedSlot) return;
     try {
-      document.activeElement?.blur();
       const res = await releaseSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
-      console.log("Lock response : ", res)
       if (res?.success) {
         alert("🔓 Slot released successfully!");
-        const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
-        modal?.hide();
+        window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"))?.hide();
         fetchTimeline();
       } else {
-        alert(res?.data?.message || "Failed to release slot");
+        alert(res?.message || "Failed to release slot");
       }
     } catch (err) {
-      console.error("Release slot error:", err);
-      alert(err?.response?.data?.message);
+      console.error("Release error:", err);
+      alert("Error releasing slot");
     }
   };
 
-  // ✅ Confirm booking
-  // const handleConfirmBooking = async (e) => {
-  //   e.preventDefault();
-  //   try {
-  //     document.activeElement?.blur();
-
-  //     const payload = {
-  //       yachtId,
-  //       date: day.date,
-  //       startTime: selectedSlot.start,
-  //       endTime: selectedSlot.end,
-  //       quotedAmount: 0,
-  //       customerId: "replace_with_customer_id", // set actual customer ID
-  //     };
-
-  //     const res = await createBooking(payload, token);
-
-  //     if (res) {
-  //       alert("🎉 Booking confirmed!");
-  //       const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
-  //       modal?.hide();
-  //       fetchTimeline();
-  //     }
-  //   } catch (err) {
-  //     console.error("Booking confirm error:", err);
-  //     alert("Failed to confirm booking");
-  //   }
-  // };
-
-  // ✅ Confirm booking — navigate to CreateBooking with prefilled data
+  // Confirm booking — navigate to CreateBooking with slot times (fixed)
   const handleConfirmBooking = (e) => {
     e.preventDefault();
-    document.activeElement?.blur();
+    if (!selectedSlot) return;
+    window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"))?.hide();
 
-    if (!selectedSlot) {
-      alert("No slot selected");
-      return;
-    }
-
-    // Close modal
-    const modal = window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"));
-    modal?.hide();
-
-    // Navigate with prefilled state
     navigate("/create-booking", {
       state: {
         yachtId,
         yachtName,
+        yacht,
         date: day.date,
         startTime: selectedSlot.start,
         endTime: selectedSlot.end,
@@ -192,8 +262,7 @@ function DayAvailability() {
     });
   };
 
-
-
+  // ---------- Render ----------
   return (
     <div className="container mt-4">
       <button className="btn btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
@@ -213,25 +282,27 @@ function DayAvailability() {
         <div className="text-center text-muted mt-5">No timeline data</div>
       ) : (
         <div className="timeline-container mb-4">
-          {timeline.map((slot, i) => (
+          {timeline.map((slot, idx) => (
             <div
-              key={i}
+              key={idx}
               onClick={() => handleSlotClick(slot)}
-              className={`p-3 mb-2 rounded text-center fw-semibold cursor-pointer ${slot.type === "booked"
-                ? "bg-danger text-white"
-                : slot.type === "locked"
+              className={`p-3 mb-2 rounded text-center fw-semibold ${
+                slot.type === "booked"
+                  ? "bg-danger text-white"
+                  : slot.type === "locked"
                   ? "bg-warning text-dark"
                   : "bg-success text-white"
-                }`}
-              style={{ cursor: "pointer" }}
+              }`}
+              style={{ cursor: slot.type === "booked" ? "not-allowed" : "pointer" }}
             >
-              {slot.type.charAt(0).toUpperCase() + slot.type.slice(1)} — {slot.start} to {slot.end}
+              {/* show only times — no textual type label */}
+              {slot.start} — {slot.end}
             </div>
           ))}
         </div>
       )}
 
-      {/* 🔒 Lock Modal */}
+      {/* Lock Modal */}
       <div className="modal fade" id="lockModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog">
           <div className="modal-content">
@@ -242,30 +313,11 @@ function DayAvailability() {
               </div>
               <div className="modal-body">
                 {selectedSlot && (
-                  <>
-                    <p>Free slot: {selectedSlot.start} — {selectedSlot.end}</p>
-                    <input
-                      type="time"
-                      className="form-control mb-2"
-                      name="start"
-                      value={booking.start}
-                      min={selectedSlot.start}
-                      max={selectedSlot.end}
-                      onChange={handleBookingChange}
-                      required
-                    />
-                    <input
-                      type="time"
-                      className="form-control"
-                      name="end"
-                      value={booking.end}
-                      min={booking.start}
-                      max={selectedSlot.end}
-                      onChange={handleBookingChange}
-                      required
-                    />
-                  </>
+                  <p>
+                    Free slot: <strong>{selectedSlot.start}</strong> — <strong>{selectedSlot.end}</strong>
+                  </p>
                 )}
+                {/* <p className="text-muted small">Slot time is fixed. It will be used as-is for locking.</p> */}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">
@@ -280,7 +332,7 @@ function DayAvailability() {
         </div>
       </div>
 
-      {/* ✅ Confirm Booking Modal */}
+      {/* Confirm Booking Modal */}
       <div className="modal fade" id="confirmModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog">
           <div className="modal-content">
@@ -290,14 +342,15 @@ function DayAvailability() {
                 <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
               </div>
               <div className="modal-body">
-                {selectedSlot && <p>Locked slot: {selectedSlot.start} — {selectedSlot.end}</p>}
+                {selectedSlot && (
+                  <p>
+                    Locked slot: <strong>{selectedSlot.start}</strong> — <strong>{selectedSlot.end}</strong>
+                  </p>
+                )}
+                {/* <p className="text-muted small">You cannot change slot times here — proceed to create booking to fill customer details.</p> */}
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={handleReleaseLock}
-                >
+                <button type="button" className="btn btn-danger" onClick={handleReleaseLock}>
                   Release Lock
                 </button>
                 <button type="submit" className="btn btn-primary">

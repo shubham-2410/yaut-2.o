@@ -15,6 +15,7 @@ import { authMiddleware, onlyAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// validate(yachtSchema), -- Removed as it is deleting special slot time
 router.post(
   "/",
   authMiddleware,

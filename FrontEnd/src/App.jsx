@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -26,7 +26,7 @@ function App() {
   // Initialize user immediately from localStorage
   const storedUser = localStorage.getItem("user");
   const [user, setUser] = useState(storedUser ? JSON.parse(storedUser) : null);
-
+  const naviate = useNavigate();
   const role = user?.type?.toLowerCase();
 
   const handleLogin = (data) => {
@@ -38,6 +38,7 @@ function App() {
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
+    naviate("/");
   };
 
   return (

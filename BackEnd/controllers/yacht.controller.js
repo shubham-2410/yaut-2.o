@@ -3,7 +3,9 @@ import { YachtModel } from "../models/yacht.model.js";
 // Create Yacht
 export const createYacht = async (req, res, next) => {
   try {
+    console.log("Here is req , ", req.body);
     const yacht = await YachtModel.create({ ...req.body, company: req.user.company });
+    
     res.status(201).json({ success: true, yacht });
   } catch (error) {
     next(error);
@@ -18,6 +20,10 @@ export const getAllYachts = async (req, res, next) => {
     const formatted = yachts.map((yacht) => ({
       id: yacht._id,
       name: yacht.name,
+      sailStartTime : yacht.sailStartTime,
+      sailEndTime : yacht.sailEndTime,
+      slotDurationMinutes: yacht.duration, 
+      specialSlot  : yacht.specialSlotTime
     }));
     res.json({ success: true, yachts: formatted });
   } catch (error) {
