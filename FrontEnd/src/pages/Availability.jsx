@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
+import { all } from "axios";
 
 function Availability() {
   const [availability, setAvailability] = useState([]);
@@ -11,8 +12,11 @@ function Availability() {
   const [selectedYacht, setSelectedYacht] = useState(null);
   const [detailedYacht, setDetailedYacht] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [filterDate, setFilterDate] = useState(""); // ✅ Added
-  const [filterStatus, setFilterStatus] = useState(""); // ✅ Added
+
+  // Filters
+  const [filterDate, setFilterDate] = useState("");
+  const [filterCapacity, setFilterCapacity] = useState("");
+  const [filterBudget, setFilterBudget] = useState("");
 
   const navigate = useNavigate();
   const token = localStorage.getItem("authToken");
@@ -40,6 +44,8 @@ function Availability() {
         setSelectedWeek(weekLabel);
 
         const res = await getAvailabilitySummary(startDate, endDate, token);
+        console.log("first", JSON.stringify(res.yachts, null, 2));
+
         if (res?.success && res?.yachts) {
           const formatted = res.yachts.map((y) => ({
             yachtId: y.yachtId || y._id,
@@ -47,6 +53,7 @@ function Availability() {
             company: y.company,
             capacity: y.capacity,
             status: y.status,
+            sellingPrice: y.sellingPrice || y.maxSellingPrice || 0,
             yachtPhotos:
               y.yachtPhotos && y.yachtPhotos.length > 0
                 ? y.yachtPhotos
@@ -86,8 +93,6 @@ function Availability() {
 
   // 🧭 Handle date cell click
   const handleDayClick = (yacht, day) => {
-    console.log("Here is yaut " , yacht )
-
     if (!yacht || !day) return;
 
     const today = new Date();
@@ -112,7 +117,9 @@ function Availability() {
 
     try {
       const res = await getAllYachtsDetailsAPI(token);
+
       const allYachts = res?.data?.yachts || [];
+      console.log("Here is all Yachts" + allYachts);
       const details = allYachts.find((y) => y._id === yacht.yachtId);
 
       if (details) {
@@ -146,20 +153,48 @@ function Availability() {
     setDetailedYacht(null);
   };
 
-  // 🎛️ Filter UI Handlers
-  const handleFilter = () => {
-    console.log(
-      "Filter applied for date:",
-      filterDate,
-      "status:",
-      filterStatus
-    );
-    // In future — you can add backend filtering logic here
-  };
+  // 🎛️ Filter Logic
+  const filteredAvailability = availability.filter((yacht) => {
+    // Capacity filter
+    if (filterCapacity === "small" && yacht.capacity > 5) return false;
+    if (
+      filterCapacity === "medium" &&
+      (yacht.capacity < 6 || yacht.capacity > 10)
+    )
+      return false;
+    if (
+      filterCapacity === "large" &&
+      (yacht.capacity < 11 || yacht.capacity > 20)
+    )
+      return false;
+    if (filterCapacity === "xlarge" && yacht.capacity <= 20) return false;
+
+    // Budget filter
+    if (filterBudget === "low" && yacht.sellingPrice >= 5000) return false;
+    if (
+      filterBudget === "mid" &&
+      (yacht.sellingPrice < 5000 || yacht.sellingPrice > 10000)
+    )
+      return false;
+    if (
+      filterBudget === "high" &&
+      (yacht.sellingPrice < 10000 || yacht.sellingPrice > 20000)
+    )
+      return false;
+    if (filterBudget === "premium" && yacht.sellingPrice <= 20000) return false;
+
+    // Date filter
+    if (filterDate) {
+      return yacht.days.some((d) => d.date === filterDate);
+    }
+
+    return true;
+  });
 
   const handleClear = () => {
     setFilterDate("");
-    setFilterStatus("");
+    setFilterCapacity("");
+    setFilterBudget("");
   };
 
   return (
@@ -172,22 +207,67 @@ function Availability() {
       </div>
 
       {/* Filters Row */}
-      <div className="d-flex flex-wrap gap-2 mb-4">
-        <input
-          type="date"
-          className="form-control"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-          style={{ maxWidth: "200px" }}
-          min={new Date().toISOString().split("T")[0]} // ⬅️ Prevent past dates
-        />
+      <div className="d-flex flex-wrap justify-content-between align-items-end mb-4">
+        {/* Left Side — Capacity & Budget */}
+        <div className="d-flex flex-wrap gap-3">
+          {/* Capacity Filter */}
+          <div>
+            <label className="form-label mb-1">Capacity</label>
+            <select
+              className="form-select"
+              value={filterCapacity}
+              onChange={(e) => setFilterCapacity(e.target.value)}
+              style={{ maxWidth: "150px" }}
+            >
+              <option value="">All</option>
+              <option value="small">1–5</option>
+              <option value="medium">6–10</option>
+              <option value="large">11–20</option>
+              <option value="xlarge">21+</option>
+            </select>
+          </div>
 
-        <button className="btn btn-primary" onClick={handleFilter}>
-          Filter
-        </button>
-        <button className="btn btn-secondary" onClick={handleClear}>
-          Clear
-        </button>
+          {/* Budget Filter */}
+          <div>
+            <label className="form-label mb-1">Budget</label>
+            <select
+              className="form-select"
+              value={filterBudget}
+              onChange={(e) => setFilterBudget(e.target.value)}
+              style={{ maxWidth: "150px" }}
+            >
+              <option value="">All</option>
+              <option value="low">Under ₹5,000</option>
+              <option value="mid">₹5,000 – ₹10,000</option>
+              <option value="high">₹10,000 – ₹20,000</option>
+              <option value="premium">Above ₹20,000</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Right Side — Date & Buttons */}
+        <div className="d-flex flex-wrap align-items-end gap-3">
+          {/* Date Filter */}
+          <div>
+            <label className="form-label mb-1">Date</label>
+            <input
+              type="date"
+              className="form-control"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              style={{ maxWidth: "200px" }}
+              min={new Date().toISOString().split("T")[0]}
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="d-flex gap-2">
+            <button className="btn btn-primary">Apply</button>
+            <button className="btn btn-secondary" onClick={handleClear}>
+              Clear
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 📊 Availability Table */}
@@ -195,10 +275,12 @@ function Availability() {
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
         </div>
-      ) : availability.length === 0 ? (
-        <div className="text-center text-muted mt-5">No yachts available</div>
+      ) : filteredAvailability.length === 0 ? (
+        <div className="text-center text-muted mt-5">
+          No yachts match your filters
+        </div>
       ) : (
-        availability.map((yacht, index) => (
+        filteredAvailability.map((yacht, index) => (
           <div key={index} className="card shadow-sm mb-4">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-3">
@@ -210,7 +292,10 @@ function Availability() {
                   >
                     {yacht.name}
                   </h5>
-                  <small className="text-muted">{yacht.email}</small>
+                  <small className="text-muted">
+                    {yacht.email} | Capacity: {yacht.capacity} | ₹
+                    {yacht.sellingPrice}
+                  </small>
                 </div>
               </div>
 
@@ -354,6 +439,10 @@ function Availability() {
                         <tr>
                           <th>Capacity</th>
                           <td>{detailedYacht.capacity || "—"}</td>
+                        </tr>
+                        <tr>
+                          <th>Price</th>
+                          <td>₹{detailedYacht.sellingPrice || "—"}</td>
                         </tr>
                         <tr>
                           <th>Status</th>

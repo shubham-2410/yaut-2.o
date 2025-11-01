@@ -14,9 +14,18 @@ const toMinutes = (time) => {
 // -------------------------
 // Check if a slot is available (prevent overlapping)
 // -------------------------
-export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime, employeeId }) => {
+export const checkSlotAvailability = async ({
+  yachtId,
+  date,
+  startTime,
+  endTime,
+  employeeId,
+}) => {
   if (!yachtId || !date || !startTime || !endTime) {
-    return { available: false, reason: "yachtId, date, startTime, and endTime are required." };
+    return {
+      available: false,
+      reason: "yachtId, date, startTime, and endTime are required.",
+    };
   }
 
   const newStart = toMinutes(startTime);
@@ -34,12 +43,22 @@ export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime,
 
     if (overlap) {
       if (slot.status === "booked") {
-        return { available: false, reason: "Slot already booked in availability. Please check the availability" };
+        return {
+          available: false,
+          reason:
+            "Slot already booked in availability. Please check the availability",
+        };
       }
-      if (slot.status === "locked" && String(slot.appliedBy) !== String(employeeId)) {
+      if (
+        slot.status === "locked" &&
+        String(slot.appliedBy) !== String(employeeId)
+      ) {
         return { available: false, reason: "Slot locked by another employee." };
       }
-      if (slot.status === "locked" && String(slot.appliedBy) === String(employeeId)) {
+      if (
+        slot.status === "locked" &&
+        String(slot.appliedBy) === String(employeeId)
+      ) {
         return { available: true, conflictSlot: slot }; // same user’s lock
       }
     }
@@ -58,7 +77,10 @@ export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime,
     const overlap = newStart < bEnd && newEnd > bStart;
 
     if (overlap) {
-      return { available: false, reason: "Slot already booked in another booking." };
+      return {
+        available: false,
+        reason: "Slot already booked in another booking.",
+      };
     }
   }
 
@@ -66,29 +88,52 @@ export const checkSlotAvailability = async ({ yachtId, date, startTime, endTime,
   return { available: true };
 };
 
-
 // -------------------------
 // Lock a slot
 // -------------------------
 export const lockSlot = async (req, res, next) => {
   try {
-    const { yachtId, date, startTime, endTime, lockDurationMinutes = 15 } = req.body;
+    const {
+      yachtId,
+      date,
+      startTime,
+      endTime,
+      lockDurationMinutes = 15,
+    } = req.body;
     const employeeId = req.user.id;
 
     // Validate input
     if (!yachtId || !date || !startTime || !endTime) {
-      return res.status(400).json({ success: false, message: "yachtId, date, startTime, and endTime are required." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "yachtId, date, startTime, and endTime are required.",
+        });
     }
 
-    const { available, conflictSlot, reason } = await checkSlotAvailability({ yachtId, date, startTime, endTime, employeeId });
-    if (!available) return res.status(400).json({ success: false, message: reason });
-    if (conflictSlot) return res.status(400).json({ success: false, message: "You already have a lock on this slot." });
+    const { available, conflictSlot, reason } = await checkSlotAvailability({
+      yachtId,
+      date,
+      startTime,
+      endTime,
+      employeeId,
+    });
+    if (!available)
+      return res.status(400).json({ success: false, message: reason });
+    if (conflictSlot)
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "You already have a lock on this slot.",
+        });
 
     // const [year, month, day] = date.split("-");
     // const [endHour, endMinute] = endTime.split(":");
     // const slotEndTime = new Date(year, month - 1, day, endHour, endMinute);
     // const deleteAfter = new Date(slotEndTime.getTime() + lockDurationMinutes * 60 * 1000);
-     const deleteAfter = new Date(Date.now() + lockDurationMinutes * 60 * 1000);
+    const deleteAfter = new Date(Date.now() + lockDurationMinutes * 60 * 1000);
 
     const lockedSlot = await AvailabilityModel.create({
       yachtId,
@@ -100,7 +145,13 @@ export const lockSlot = async (req, res, next) => {
       deleteAfter,
     });
 
-    res.status(201).json({ success: true, message: "Slot locked successfully.", slot: lockedSlot });
+    res
+      .status(201)
+      .json({
+        success: true,
+        message: "Slot locked successfully.",
+        slot: lockedSlot,
+      });
   } catch (error) {
     console.error("lockSlot error:", error);
     next(error);
@@ -116,16 +167,36 @@ export const releaseSlot = async (req, res, next) => {
     const employeeId = req.user.id;
 
     if (!yachtId || !date || !startTime || !endTime) {
-      return res.status(400).json({ success: false, message: "yachtId, date, startTime, and endTime are required." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "yachtId, date, startTime, and endTime are required.",
+        });
     }
 
-    const slot = await AvailabilityModel.findOne({ yachtId, date, startTime, endTime });
-    if (!slot) return res.status(404).json({ success: false, message: "Slot not found." });
-    if (slot.status !== "locked") return res.status(400).json({ success: false, 
-      message: "Slot is not locked." });
-    if (String(slot.appliedBy) !== String(employeeId)){ 
-      console.log("Locked by another emp")
-      return res.status(403).json({ success: false, message: "You cannot release a slot locked by another employee." });    
+    const slot = await AvailabilityModel.findOne({
+      yachtId,
+      date,
+      startTime,
+      endTime,
+    });
+    if (!slot)
+      return res
+        .status(404)
+        .json({ success: false, message: "Slot not found." });
+    if (slot.status !== "locked")
+      return res
+        .status(400)
+        .json({ success: false, message: "Slot is not locked." });
+    if (String(slot.appliedBy) !== String(employeeId)) {
+      console.log("Locked by another emp");
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "You cannot release a slot locked by another employee.",
+        });
     }
 
     await slot.deleteOne();
@@ -148,20 +219,28 @@ export const getAvailabilitySummary = async (req, res, next) => {
     const { company } = req.user;
 
     if (!startDate || !endDate) {
-      return res.status(400).json({ success: false, message: "Start and end dates are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Start and end dates are required" });
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ success: false, message: "Invalid start or end date" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid start or end date" });
     }
 
     // Fetch yachts
-    const yachts = await YachtModel.find({ company }).select("_id name");
+    const yachts = await YachtModel.find({ company }).select(
+      "_id name capacity sellingPrice"
+    );
     if (!yachts.length) {
-      return res.status(404).json({ success: false, message: "No yachts found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No yachts found" });
     }
 
     const yachtIds = yachts.map((y) => y._id);
@@ -181,7 +260,10 @@ export const getAvailabilitySummary = async (req, res, next) => {
       if (!b || !b.date || !b.yachtId || !b.startTime || !b.endTime) return;
 
       const dateStr = b.date.toISOString().split("T")[0];
-      summary[b.yachtId][dateStr] = summary[b.yachtId][dateStr] || { bookings: 0, bookedTime: 0 };
+      summary[b.yachtId][dateStr] = summary[b.yachtId][dateStr] || {
+        bookings: 0,
+        bookedTime: 0,
+      };
 
       summary[b.yachtId][dateStr].bookings += 1;
 
@@ -199,7 +281,10 @@ export const getAvailabilitySummary = async (req, res, next) => {
       const yachtData = [];
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split("T")[0];
-        const dayInfo = summary[yacht._id][dateStr] || { bookings: 0, bookedTime: 0 };
+        const dayInfo = summary[yacht._id][dateStr] || {
+          bookings: 0,
+          bookedTime: 0,
+        };
 
         yachtData.push({
           date: dateStr,
@@ -208,10 +293,22 @@ export const getAvailabilitySummary = async (req, res, next) => {
           bookedTime: dayInfo.bookedTime, // in hours
         });
       }
-      return { yachtId: yacht._id, yachtName: yacht.name, availability: yachtData };
+      console.log(yacht);
+      return {
+        yachtId: yacht._id,
+        yachtName: yacht.name,
+        capacity: yacht.capacity,
+        sellingPrice: yacht.sellingPrice,
+        availability: yachtData,
+      };
     });
 
-    res.json({ success: true, company, range: { startDate, endDate }, yachts: yachtSummaries });
+    res.json({
+      success: true,
+      company,
+      range: { startDate, endDate },
+      yachts: yachtSummaries,
+    });
   } catch (err) {
     console.error("Error in getAvailabilitySummary:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -219,7 +316,7 @@ export const getAvailabilitySummary = async (req, res, next) => {
 };
 
 export const getDayAvailability = async (req, res, next) => {
-  console.log("In Day Avail back")
+  console.log("In Day Avail back");
   try {
     const { yachtId } = req.params;
     const { date } = req.query; // expected format: YYYY-MM-DD

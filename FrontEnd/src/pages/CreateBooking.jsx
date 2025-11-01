@@ -9,15 +9,20 @@ function CreateBooking() {
   const location = useLocation();
   const prefill = location.state || {};
 
-  const [formData, setFormData] = useState({
-    email: "",
-    yachtId: prefill.yachtId || "",
-    totalAmount: "",
-    date: prefill.date || "",
-    startTime: prefill.startTime || "",
-    endTime: prefill.endTime || "",
-    numPeople: "",
-  });
+const [formData, setFormData] = useState({
+  fullName: "",
+  contactNumber: "",
+  govtId: "",
+  email: "",
+  yachtId: prefill.yachtId || "",
+  totalAmount: "",
+  date: prefill.date || "",
+  startTime: prefill.startTime || "",
+  endTime: prefill.endTime || "",
+  numPeople: "",
+});
+
+
 
   const [yachts, setYachts] = useState([]);
   const [startTimeOptions, setStartTimeOptions] = useState([]); // [{start, end}]
@@ -40,7 +45,9 @@ function CreateBooking() {
       try {
         const token = localStorage.getItem("authToken");
         const res = await getAllYachtsAPI(token);
-        const yachtList = Array.isArray(res?.data?.yachts) ? res.data.yachts : [];
+        const yachtList = Array.isArray(res?.data?.yachts)
+          ? res.data.yachts
+          : [];
         setYachts(yachtList);
       } catch (err) {
         console.error("Failed to fetch yachts:", err);
@@ -52,11 +59,19 @@ function CreateBooking() {
 
   // Build slot list (avoids overlap)
   const buildSlotsForYacht = (yacht) => {
-    if (!yacht || !yacht.sailStartTime || !yacht.sailEndTime || !yacht.slotDurationMinutes)
+    if (
+      !yacht ||
+      !yacht.sailStartTime ||
+      !yacht.sailEndTime ||
+      !yacht.slotDurationMinutes
+    )
       return [];
 
     let durationMinutes = 0;
-    if (typeof yacht.slotDurationMinutes === "string" && yacht.slotDurationMinutes.includes(":")) {
+    if (
+      typeof yacht.slotDurationMinutes === "string" &&
+      yacht.slotDurationMinutes.includes(":")
+    ) {
       const [dh, dm] = yacht.slotDurationMinutes.split(":").map(Number);
       durationMinutes = dh * 60 + dm;
     } else {
@@ -68,20 +83,33 @@ function CreateBooking() {
     const endMin = hhmmToMinutes(yacht.sailEndTime);
     if (endMin <= startMin) return [];
 
-    const specialMin = yacht.specialSlot ? hhmmToMinutes(yacht.specialSlot) : null;
-    const specialIsValid = specialMin && specialMin >= startMin && specialMin < endMin;
+    const specialMin = yacht.specialSlot
+      ? hhmmToMinutes(yacht.specialSlot)
+      : null;
+    const specialIsValid =
+      specialMin && specialMin >= startMin && specialMin < endMin;
 
     const slots = [];
     let cursor = startMin;
 
     while (cursor < endMin) {
       // Split slot if special falls inside
-      if (specialIsValid && specialMin > cursor && specialMin < cursor + durationMinutes) {
+      if (
+        specialIsValid &&
+        specialMin > cursor &&
+        specialMin < cursor + durationMinutes
+      ) {
         if (specialMin > cursor) {
-          slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(specialMin) });
+          slots.push({
+            start: minutesToHHMM(cursor),
+            end: minutesToHHMM(specialMin),
+          });
         }
         const specialEnd = Math.min(specialMin + durationMinutes, endMin);
-        slots.push({ start: minutesToHHMM(specialMin), end: minutesToHHMM(specialEnd) });
+        slots.push({
+          start: minutesToHHMM(specialMin),
+          end: minutesToHHMM(specialEnd),
+        });
         cursor = specialEnd;
         continue;
       }
@@ -137,7 +165,12 @@ function CreateBooking() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "yachtId") {
-      setFormData((prev) => ({ ...prev, yachtId: value, startTime: "", endTime: "" }));
+      setFormData((prev) => ({
+        ...prev,
+        yachtId: value,
+        startTime: "",
+        endTime: "",
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -149,7 +182,10 @@ function CreateBooking() {
     setError("");
     try {
       const token = localStorage.getItem("authToken");
-      const { data: customer } = await getCustomerByEmailAPI(formData.email, token);
+      const { data: customer } = await getCustomerByEmailAPI(
+        formData.email,
+        token
+      );
 
       if (!customer?._id) {
         setError("Customer not found. Please check the email.");
@@ -191,8 +227,33 @@ function CreateBooking() {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <form className="row g-3" onSubmit={handleSubmit}>
-        {/* Customer Email */}
-        <div className="col-12">
+        {/* Full Name */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Full Name</label>
+          <input
+            type="text"
+            className="form-control border border-dark text-dark"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        {/* Contact Number */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Contact Number</label>
+          <input
+            type="tel"
+            className="form-control border border-dark text-dark"
+            name="contactNumber"
+            value={formData.contactNumber}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* Email */}
+        <div className="col-md-6">
           <label className="form-label fw-bold">Customer Email</label>
           <input
             type="email"
@@ -203,6 +264,31 @@ function CreateBooking() {
             required
           />
         </div>
+        {/* Govt ID Number */}
+        <div className="col-md-6">
+          <label className="form-label fw-bold">Govt ID Number</label>
+          <input
+            type="text"
+            className="form-control border border-dark text-dark"
+            name="govtId"
+            value={formData.govtId}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* Customer Email */}
+        {/* <div className="col-12">
+          <label className="form-label fw-bold">Customer Email</label>
+          <input
+            type="email"
+            className="form-control border border-dark text-dark"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div> */}
 
         {/* Yacht */}
         <div className="col-12">
@@ -295,7 +381,11 @@ function CreateBooking() {
 
         {/* Submit */}
         <div className="col-12 text-center">
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+          <button
+            type="submit"
+            className="btn btn-primary w-100"
+            disabled={loading}
+          >
             {loading ? "Creating..." : "Create Booking"}
           </button>
         </div>

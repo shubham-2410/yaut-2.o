@@ -8,7 +8,6 @@ function CreateYacht() {
     name: "",
     capacity: "",
     runningCost: "",
-    price: "",
     maxSellingPrice: "",
     sellingPrice: "",
     sailStartTime: "",
@@ -32,6 +31,20 @@ function CreateYacht() {
     setYacht((prev) => ({ ...prev, photos: files }));
   };
 
+  const convertTo24Hour = (timeStr) => {
+    if (!timeStr || timeStr === "none") return null;
+    const [time, modifier] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
+
+    if (modifier === "PM" && hours < 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -40,20 +53,23 @@ function CreateYacht() {
     try {
       const token = localStorage.getItem("authToken");
 
+      // Prepare payload
       const payload = {
         ...yacht,
         capacity: Number(yacht.capacity),
         runningCost: Number(yacht.runningCost),
-        price: Number(yacht.price),
         maxSellingPrice: Number(yacht.maxSellingPrice),
         sellingPrice: Number(yacht.sellingPrice),
         sailStartTime: yacht.sailStartTime,
         sailEndTime: yacht.sailEndTime,
-        duration: yacht.duration
+        duration:
+          yacht.duration === "custom"
+            ? Number(yacht.customDuration) / 60
+            : Number(yacht.duration) / 60,
+        specialSlotTime: convertTo24Hour(yacht.specialSlotTime),
       };
 
       await createYacht(payload, token);
-
       alert("✅ Yacht created successfully!");
       navigate("/admin");
     } catch (err) {
@@ -114,19 +130,6 @@ function CreateYacht() {
           />
         </div>
 
-        {/* Price */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Price</label>
-          <input
-            type="number"
-            name="price"
-            className="form-control border border-dark text-dark"
-            value={yacht.price}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
         {/* Max Selling Price */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Max Selling Price</label>
@@ -179,29 +182,71 @@ function CreateYacht() {
           />
         </div>
 
-        {/* Slot Duration*/}
+        {/* Slot Duration */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Slot Duration</label>
-          <input
-            type="time"
+          <select
             name="duration"
-            className="form-control border border-dark text-dark"
-            value={yacht.duration}
-            onChange={handleChange}
-            required
-          />
+            className="form-select border border-dark text-dark"
+            value={yacht.duration || "120"} // default 120 minutes
+            onChange={(e) => {
+              const value = e.target.value;
+              setYacht((prev) => ({
+                ...prev,
+                duration: value,
+                customDuration:
+                  value === "custom" ? prev.customDuration || "" : null,
+              }));
+            }}
+          >
+            <option value="30">30 minutes</option>
+            <option value="60">60 minutes</option>
+            <option value="120">120 minutes</option>
+            <option value="custom">Custom</option>
+          </select>
+
+          {/* Custom duration field */}
+          {yacht.duration === "custom" && (
+            <div className="mt-2">
+              <label className="form-label fw-semibold">
+                Enter Custom Duration (minutes)
+              </label>
+              <input
+                type="number"
+                name="customDuration"
+                placeholder="Enter minutes"
+                className="form-control border border-dark text-dark"
+                value={yacht.customDuration || ""}
+                onChange={(e) =>
+                  setYacht((prev) => ({
+                    ...prev,
+                    customDuration: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          )}
         </div>
 
         {/* Special Slot (optional) */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Special Slot (optional)</label>
-          <input
-            type="time"
+          <select
             name="specialSlotTime"
-            className="form-control border border-dark text-dark"
-            value={yacht.specialSlotTime}
-            onChange={handleChange}
-          />
+            className="form-select border border-dark text-dark"
+            value={yacht.specialSlotTime || "none"}
+            onChange={(e) =>
+              setYacht((prev) => ({
+                ...prev,
+                specialSlotTime: e.target.value,
+              }))
+            }
+          >
+            <option value="none">None</option>
+            <option value="4:00 PM">4:00 - 6:00 PM</option>
+            <option value="5:30 PM">5:30 - 7:30 PM</option>
+            <option value="6:00 PM">6:00 - 8:00 PM</option>
+          </select>
         </div>
 
         {/* Status */}
@@ -221,12 +266,21 @@ function CreateYacht() {
         {/* Upload Photos */}
         <div className="col-12">
           <label className="form-label fw-bold">Upload Photos</label>
-          <input type="file" multiple className="form-control" onChange={handlePhotoUpload} />
+          <input
+            type="file"
+            multiple
+            className="form-control"
+            onChange={handlePhotoUpload}
+          />
         </div>
 
         {/* Submit */}
         <div className="col-12 text-center">
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+          <button
+            type="submit"
+            className="btn btn-primary w-100"
+            disabled={loading}
+          >
             {loading ? "Creating..." : "Create Yacht"}
           </button>
         </div>
