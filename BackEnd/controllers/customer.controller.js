@@ -8,6 +8,7 @@ export const createCustomer = async (req, res, next) => {
       ...req.body,
       govtIdImage: req.cloudinaryUrl // Attach uploaded image URL
     });
+    console.log("Customer - ", customer);
     res.status(201).json(customer);
   } catch (error) {
     next(error);
@@ -24,17 +25,35 @@ export const getCustomers = async (req, res, next) => {
   }
 };
 
+// export const getCustomerByEmail = async (req, res, next) => {
+//   try {
+//     const { email } = req.params; // 👈 Expecting email in URL
+//     console.log("Get by email ", email)
+//     const customer = await CustomerModel.findOne({ email });
+
+//     if (!customer) {
+//       return res.status(404).json({ error: "Customer not found" });
+//     }
+
+//     res.json(customer);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const getCustomerByEmail = async (req, res, next) => {
   try {
-    const { email } = req.params; // 👈 Expecting email in URL
-    console.log("Get by email ", email)
+    const { email } = req.params;
+    console.log("Get by email ", email);
+
     const customer = await CustomerModel.findOne({ email });
 
-    if (!customer) {
-      return res.status(404).json({ error: "Customer not found" });
-    }
+    // ✅ Always respond with 200
+    // ✅ Frontend will check if customer === null
+    return res.status(200).json({
+      customer: customer || null
+    });
 
-    res.json(customer);
   } catch (error) {
     next(error);
   }

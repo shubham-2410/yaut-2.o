@@ -30,11 +30,11 @@ const customerSchema = new mongoose.Schema({
   },
   govtIdImage: {
     type: String,
-    required: true // could be URL or local file path
+    // required: true // could be URL or local file path
   },
   govtIdNo: {
     type: String,
-    required: true,
+    // required: true,
     match: [/^[a-zA-Z0-9]+$/, 'Govt ID must be alphanumeric']
   }
 }, {

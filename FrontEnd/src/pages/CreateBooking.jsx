@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createBookingAPI } from "../services/operations/bookingAPI";
-import { getCustomerByEmailAPI } from "../services/operations/customerAPI";
+import { createCustomerAPI, getCustomerByEmailAPI } from "../services/operations/customerAPI";
 import { getAllYachtsAPI } from "../services/operations/yautAPI";
 
 function CreateBooking() {
@@ -9,18 +9,18 @@ function CreateBooking() {
   const location = useLocation();
   const prefill = location.state || {};
 
-const [formData, setFormData] = useState({
-  fullName: "",
-  contactNumber: "",
-  govtId: "",
-  email: "",
-  yachtId: prefill.yachtId || "",
-  totalAmount: "",
-  date: prefill.date || "",
-  startTime: prefill.startTime || "",
-  endTime: prefill.endTime || "",
-  numPeople: "",
-});
+  const [formData, setFormData] = useState({
+    name: "",
+    contact: "",
+    govtId: "",
+    email: "",
+    yachtId: prefill.yachtId || "",
+    totalAmount: "",
+    date: prefill.date || "",
+    startTime: prefill.startTime || "",
+    endTime: prefill.endTime || "",
+    numPeople: "",
+  });
 
 
 
@@ -177,6 +177,7 @@ const [formData, setFormData] = useState({
   };
 
   const handleSubmit = async (e) => {
+    console.log("Clicked")
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -186,15 +187,29 @@ const [formData, setFormData] = useState({
         formData.email,
         token
       );
-
+      console.log("Im customer - ", customer)
+      let customerId = customer?._id;
+      console.log("Just before customer ")
       if (!customer?._id) {
-        setError("Customer not found. Please check the email.");
-        setLoading(false);
-        return;
+        console.log("I'm In side new Customer")
+        const token = localStorage.getItem("authToken");
+        // Prepare FormData for file upload
+        const payload = new FormData();
+        for (let key in formData) {
+          if (formData[key] !== null) {
+            payload.append(key, formData[key]);
+          }
+        }
+
+        const res = await createCustomerAPI(payload, token);
+        console.log("✅ Customer created:", res.data);
+        customerId = res?.data?._id;
+        console.log("New Customer created - ", customerId);
+        // alert("✅ Customer profile created successfully!");
       }
 
       const payload = {
-        customerId: customer._id,
+        customerId: customerId,
         employeeId: "replace_with_actual_employee_id",
         yachtId: formData.yachtId,
         date: formData.date,
@@ -233,8 +248,8 @@ const [formData, setFormData] = useState({
           <input
             type="text"
             className="form-control border border-dark text-dark"
-            name="fullName"
-            value={formData.fullName}
+            name="name"
+            value={formData.name}
             onChange={handleChange}
             required
           />
@@ -245,8 +260,8 @@ const [formData, setFormData] = useState({
           <input
             type="tel"
             className="form-control border border-dark text-dark"
-            name="contactNumber"
-            value={formData.contactNumber}
+            name="contact"
+            value={formData.contact}
             onChange={handleChange}
             required
           />
