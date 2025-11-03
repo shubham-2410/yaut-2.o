@@ -1,0 +1,45 @@
+/* Fix date number wrapping issue in React Calendar */
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 0.95rem;
+}
+
+.react-calendar__month-view__days__day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px; /* Ensure consistent square shape */
+  min-width: 38px;
+  font-weight: 500;
+  white-space: nowrap; /* Prevent 13 → 1\n3 issue */
+}
+
+.react-calendar__tile {
+  padding: 0 !important;
+}
+
+.react-calendar__tile--active {
+  background: #0d6efd !important;
+  color: #fff !important;
+  border-radius: 8px;
+}
+
+.react-calendar__tile--now {
+  background: #e9f3ff !important;
+  border-radius: 8px;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  font-size: 1rem;
+  margin: 2px;
+}
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}

@@ -23,7 +23,8 @@ export const getAllYachts = async (req, res, next) => {
       sailStartTime : yacht.sailStartTime,
       sailEndTime : yacht.sailEndTime,
       slotDurationMinutes: yacht.duration, 
-      specialSlot  : yacht.specialSlotTime
+      specialSlot  : yacht.specialSlotTime,
+      runningCost :  yacht.runningCost
     }));
     res.json({ success: true, yachts: formatted });
   } catch (error) {

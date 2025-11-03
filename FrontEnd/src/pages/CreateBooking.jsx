@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createBookingAPI } from "../services/operations/bookingAPI";
-import { createCustomerAPI, getCustomerByEmailAPI } from "../services/operations/customerAPI";
+import {
+  createCustomerAPI,
+  getCustomerByEmailAPI,
+} from "../services/operations/customerAPI";
 import { getAllYachtsAPI } from "../services/operations/yautAPI";
 
 function CreateBooking() {
@@ -22,12 +25,11 @@ function CreateBooking() {
     numPeople: "",
   });
 
-
-
   const [yachts, setYachts] = useState([]);
-  const [startTimeOptions, setStartTimeOptions] = useState([]); // [{start, end}]
+  const [startTimeOptions, setStartTimeOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [runningCost, setRunningCost] = useState(0);
 
   const hhmmToMinutes = (time) => {
     const [h, m] = time.split(":").map(Number);
@@ -57,7 +59,7 @@ function CreateBooking() {
     fetchYachts();
   }, []);
 
-  // Build slot list (avoids overlap)
+  // Build slot list
   const buildSlotsForYacht = (yacht) => {
     if (
       !yacht ||
@@ -93,7 +95,6 @@ function CreateBooking() {
     let cursor = startMin;
 
     while (cursor < endMin) {
-      // Split slot if special falls inside
       if (
         specialIsValid &&
         specialMin > cursor &&
@@ -113,14 +114,11 @@ function CreateBooking() {
         cursor = specialEnd;
         continue;
       }
-
-      // Regular slot or truncated last
       const next = Math.min(cursor + durationMinutes, endMin);
       slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next) });
       cursor = next;
     }
 
-    // Remove duplicates and sort
     const seen = new Set();
     const unique = slots.filter((s) => {
       const key = `${s.start}-${s.end}`;
@@ -132,18 +130,20 @@ function CreateBooking() {
     return unique;
   };
 
-  // Update slots when yacht changes
+  // Update slots + running cost when yacht changes
   useEffect(() => {
     const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
     if (!selectedYacht) {
       setStartTimeOptions([]);
+      setRunningCost(0);
       return;
     }
+
+    setRunningCost(selectedYacht.runningCost || 0);
 
     const slots = buildSlotsForYacht(selectedYacht);
     setStartTimeOptions(slots);
 
-    // auto-update endTime if startTime already selected
     if (formData.startTime) {
       const match = slots.find((s) => s.start === formData.startTime);
       if (match) {
@@ -176,24 +176,41 @@ function CreateBooking() {
     }
   };
 
+  const isAmountInvalid =
+    formData.totalAmount &&
+    runningCost &&
+    parseFloat(formData.totalAmount) < runningCost;
+
   const handleSubmit = async (e) => {
-    console.log("Clicked")
     e.preventDefault();
     setLoading(true);
     setError("");
+
     try {
+      const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
+      if (!selectedYacht) {
+        alert("Please select a yacht first.");
+        setLoading(false);
+        return;
+      }
+
+      if (parseFloat(formData.totalAmount) < selectedYacht.runningCost) {
+        alert(
+          `❌ Total Amount must be greater than or equal to the yacht's running cost (₹${selectedYacht.runningCost}).`
+        );
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem("authToken");
       const { data: customer } = await getCustomerByEmailAPI(
         formData.email,
         token
       );
-      console.log("Im customer - ", customer)
+
       let customerId = customer?._id;
-      console.log("Just before customer ")
+
       if (!customer?._id) {
-        console.log("I'm In side new Customer")
-        const token = localStorage.getItem("authToken");
-        // Prepare FormData for file upload
         const payload = new FormData();
         for (let key in formData) {
           if (formData[key] !== null) {
@@ -202,10 +219,7 @@ function CreateBooking() {
         }
 
         const res = await createCustomerAPI(payload, token);
-        console.log("✅ Customer created:", res.data);
         customerId = res?.data?._id;
-        console.log("New Customer created - ", customerId);
-        // alert("✅ Customer profile created successfully!");
       }
 
       const payload = {
@@ -254,6 +268,7 @@ function CreateBooking() {
             required
           />
         </div>
+
         {/* Contact Number */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Contact Number</label>
@@ -279,7 +294,8 @@ function CreateBooking() {
             required
           />
         </div>
-        {/* Govt ID Number */}
+
+        {/* Govt ID */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Govt ID Number</label>
           <input
@@ -291,19 +307,6 @@ function CreateBooking() {
             required
           />
         </div>
-
-        {/* Customer Email */}
-        {/* <div className="col-12">
-          <label className="form-label fw-bold">Customer Email</label>
-          <input
-            type="email"
-            className="form-control border border-dark text-dark"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-        </div> */}
 
         {/* Yacht */}
         <div className="col-12">
@@ -322,6 +325,7 @@ function CreateBooking() {
               </option>
             ))}
           </select>
+         
         </div>
 
         {/* Total Amount */}
@@ -329,12 +333,19 @@ function CreateBooking() {
           <label className="form-label fw-bold">Total Amount</label>
           <input
             type="number"
-            className="form-control border border-dark text-dark"
+            className={`form-control border text-dark ${
+              isAmountInvalid ? "border-danger is-invalid" : "border-dark"
+            }`}
             name="totalAmount"
             value={formData.totalAmount}
             onChange={handleChange}
             required
           />
+          {isAmountInvalid && (
+            <div className="text-danger mt-1">
+              ⚠️ Total amount must be at least ₹{runningCost}.
+            </div>
+          )}
         </div>
 
         {/* Date */}
@@ -399,7 +410,7 @@ function CreateBooking() {
           <button
             type="submit"
             className="btn btn-primary w-100"
-            disabled={loading}
+            disabled={loading || isAmountInvalid}
           >
             {loading ? "Creating..." : "Create Booking"}
           </button>
@@ -410,3 +421,7 @@ function CreateBooking() {
 }
 
 export default CreateBooking;
+
+
+
+
