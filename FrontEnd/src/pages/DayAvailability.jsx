@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./DayAvailability.css";
+
 import {
   getDayAvailability,
   lockSlot,
@@ -27,7 +29,10 @@ function DayAvailability() {
     return (
       <div className="container mt-5 text-center">
         <p>⚠️ No yacht or date selected. Go back to the availability page.</p>
-        <button className="btn btn-primary shadow-sm px-4" onClick={() => navigate(-1)}>
+        <button
+          className="btn btn-primary shadow-sm px-4"
+          onClick={() => navigate(-1)}
+        >
           ← Back
         </button>
       </div>
@@ -49,6 +54,15 @@ function DayAvailability() {
     const h = Math.floor(m / 60);
     const mm = m % 60;
     return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  };
+
+  // 🔹 Convert 24hr "HH:MM" to 12hr format with AM/PM
+  const to12HourFormat = (time24) => {
+    if (!time24) return "";
+    const [hour, minute] = time24.split(":").map(Number);
+    const period = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
   };
 
   const buildSlotsForYacht = (yachtObj) => {
@@ -155,10 +169,18 @@ function DayAvailability() {
     e.preventDefault();
     if (!selectedSlot) return;
     try {
-      const res = await lockSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
+      const res = await lockSlot(
+        yachtId,
+        day.date,
+        selectedSlot.start,
+        selectedSlot.end,
+        token
+      );
       if (res?.success) {
         alert("✅ Slot locked successfully!");
-        window.bootstrap.Modal.getInstance(document.getElementById("lockModal"))?.hide();
+        window.bootstrap.Modal.getInstance(
+          document.getElementById("lockModal")
+        )?.hide();
         fetchTimeline();
       } else alert(res?.message || "Failed to lock slot");
     } catch (err) {
@@ -170,10 +192,18 @@ function DayAvailability() {
   const handleReleaseLock = async () => {
     if (!selectedSlot) return;
     try {
-      const res = await releaseSlot(yachtId, day.date, selectedSlot.start, selectedSlot.end, token);
+      const res = await releaseSlot(
+        yachtId,
+        day.date,
+        selectedSlot.start,
+        selectedSlot.end,
+        token
+      );
       if (res?.success) {
         alert("🔓 Slot released successfully!");
-        window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"))?.hide();
+        window.bootstrap.Modal.getInstance(
+          document.getElementById("confirmModal")
+        )?.hide();
         fetchTimeline();
       } else alert(res?.message || "Failed to release slot");
     } catch (err) {
@@ -185,7 +215,9 @@ function DayAvailability() {
   const handleConfirmBooking = (e) => {
     e.preventDefault();
     if (!selectedSlot) return;
-    window.bootstrap.Modal.getInstance(document.getElementById("confirmModal"))?.hide();
+    window.bootstrap.Modal.getInstance(
+      document.getElementById("confirmModal")
+    )?.hide();
     navigate("/create-booking", {
       state: {
         yachtId,
@@ -201,7 +233,10 @@ function DayAvailability() {
   // ---------- Render ----------
   return (
     <div className="container py-4">
-      <button className="btn btn-outline-secondary mb-3 shadow-sm" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-3 shadow-sm"
+        onClick={() => navigate(-1)}
+      >
         ← Back
       </button>
 
@@ -218,14 +253,23 @@ function DayAvailability() {
         {/* Left Calendar */}
         <div className="col-md-4 mb-4">
           <div className="card shadow-sm border-0 p-3 rounded-4">
-            <h5 className="text-center fw-semibold text-secondary mb-3">📅 Select Date</h5>
+            <h5 className="text-center fw-semibold text-secondary mb-3">
+              📅 Select Date
+            </h5>
             <Calendar
               onChange={(selectedDate) => {
-                const iso = selectedDate.toISOString().split("T")[0];
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                const date = String(selectedDate.getDate()).padStart(2, "0");
+                const iso = `${year}-${month}-${date}`;
+
                 const newDay = {
                   date: iso,
-                  day: selectedDate.toLocaleDateString("en-US", { weekday: "long" }),
+                  day: selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  }),
                 };
+
                 location.state.day = newDay;
                 fetchTimeline();
               }}
@@ -265,19 +309,22 @@ function DayAvailability() {
                           : "bg-gradient bg-success text-white"
                       }`}
                       style={{
-                        cursor: slot.type === "booked" ? "not-allowed" : "pointer",
+                        cursor:
+                          slot.type === "booked" ? "not-allowed" : "pointer",
                         transition: "all 0.2s",
                       }}
                       onClick={() => handleSlotClick(slot)}
                     >
-                      {slot.start} — {slot.end}
+                      {to12HourFormat(slot.start)} — {to12HourFormat(slot.end)}
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-4 text-center">
                   <span className="badge bg-success me-2">Free</span>
-                  <span className="badge bg-warning text-dark me-2">Locked</span>
+                  <span className="badge bg-warning text-dark me-2">
+                    Locked
+                  </span>
                   <span className="badge bg-danger">Booked</span>
                 </div>
               </>
@@ -300,16 +347,23 @@ function DayAvailability() {
                   <p className="fs-6">
                     Are you sure you want to lock this slot?
                     <br />
-                    <strong>{selectedSlot.start}</strong> —{" "}
-                    <strong>{selectedSlot.end}</strong>
+                    <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
+                    <strong>{to12HourFormat(selectedSlot.end)}</strong>
                   </p>
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  data-bs-dismiss="modal"
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-warning text-dark fw-semibold">
+                <button
+                  type="submit"
+                  className="btn btn-warning text-dark fw-semibold"
+                >
                   Lock Slot
                 </button>
               </div>
@@ -330,13 +384,18 @@ function DayAvailability() {
               <div className="modal-body text-center">
                 {selectedSlot && (
                   <p className="fs-6">
-                    Locked slot: <strong>{selectedSlot.start}</strong> —{" "}
-                    <strong>{selectedSlot.end}</strong>
+                    Locked slot:{" "}
+                    <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
+                    <strong>{to12HourFormat(selectedSlot.end)}</strong>
                   </p>
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline-danger" onClick={handleReleaseLock}>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  onClick={handleReleaseLock}
+                >
                   Release Lock
                 </button>
                 <button type="submit" className="btn btn-primary fw-semibold">
