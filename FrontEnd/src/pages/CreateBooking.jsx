@@ -31,6 +31,7 @@ function CreateBooking() {
   const [error, setError] = useState("");
   const [runningCost, setRunningCost] = useState(0);
 
+  // Time conversion helpers
   const hhmmToMinutes = (time) => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
@@ -41,7 +42,7 @@ function CreateBooking() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
-  // Fetch yachts
+  // ✅ Fetch yachts on load
   useEffect(() => {
     const fetchYachts = async () => {
       try {
@@ -59,7 +60,7 @@ function CreateBooking() {
     fetchYachts();
   }, []);
 
-  // Build slot list
+  // ✅ Slot generation logic
   const buildSlotsForYacht = (yacht) => {
     if (
       !yacht ||
@@ -130,7 +131,7 @@ function CreateBooking() {
     return unique;
   };
 
-  // Update slots + running cost when yacht changes
+  // ✅ Update time slots
   useEffect(() => {
     const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
     if (!selectedYacht) {
@@ -152,16 +153,7 @@ function CreateBooking() {
     }
   }, [formData.yachtId, yachts]);
 
-  const handleStartSelect = (e) => {
-    const start = e.target.value;
-    const slot = startTimeOptions.find((s) => s.start === start);
-    setFormData((prev) => ({
-      ...prev,
-      startTime: start,
-      endTime: slot ? slot.end : "",
-    }));
-  };
-
+  // Form change handler
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "yachtId") {
@@ -176,17 +168,32 @@ function CreateBooking() {
     }
   };
 
+  // Selecting start time
+  const handleStartSelect = (e) => {
+    const start = e.target.value;
+    const slot = startTimeOptions.find((s) => s.start === start);
+    setFormData((prev) => ({
+      ...prev,
+      startTime: start,
+      endTime: slot ? slot.end : "",
+    }));
+  };
+
   const isAmountInvalid =
     formData.totalAmount &&
     runningCost &&
     parseFloat(formData.totalAmount) < runningCost;
 
+  // ✅ ✅ FIXED handleSubmit with correct logic
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
+      const token = localStorage.getItem("authToken");
+
+      // ✅ 1. Check yacht validity
       const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
       if (!selectedYacht) {
         alert("Please select a yacht first.");
@@ -196,34 +203,36 @@ function CreateBooking() {
 
       if (parseFloat(formData.totalAmount) < selectedYacht.runningCost) {
         alert(
-          `❌ Total Amount must be greater than or equal to the yacht's running cost (₹${selectedYacht.runningCost}).`
+          `Total Amount must be ≥ the yacht's running cost (₹${selectedYacht.runningCost}).`
         );
         setLoading(false);
         return;
       }
 
-      const token = localStorage.getItem("authToken");
-      const { data: customer } = await getCustomerByEmailAPI(
-        formData.email,
-        token
-      );
+      // ✅ 2. Get customer by email
+      const { data } = await getCustomerByEmailAPI(formData.email, token);
+      console.log("Customer API response:", data);
 
-      let customerId = customer?._id;
+      let customerId = data.customer?._id;
 
-      if (!customer?._id) {
+      // ✅ 3. If customer doesn't exist → create one
+      if (!data.customer) {
+        console.log("✅ Customer not found → creating new one...");
+
         const payload = new FormData();
         for (let key in formData) {
-          if (formData[key] !== null) {
-            payload.append(key, formData[key]);
-          }
+          if (formData[key] !== null) payload.append(key, formData[key]);
         }
 
         const res = await createCustomerAPI(payload, token);
         customerId = res?.data?._id;
+      } else {
+        console.log("✅ Customer exists:", data.customer);
       }
 
-      const payload = {
-        customerId: customerId,
+      // ✅ 4. Create booking
+      const bookingPayload = {
+        customerId,
         employeeId: "replace_with_actual_employee_id",
         yachtId: formData.yachtId,
         date: formData.date,
@@ -233,7 +242,8 @@ function CreateBooking() {
         numPeople: parseInt(formData.numPeople, 10),
       };
 
-      await createBookingAPI(payload, token);
+      await createBookingAPI(bookingPayload, token);
+
       alert("✅ Booking created successfully!");
       navigate("/bookings");
     } catch (err) {
@@ -249,7 +259,7 @@ function CreateBooking() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Create Booking</h4>
         <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-          &larr; Back
+          ← Back
         </button>
       </div>
 
@@ -269,7 +279,7 @@ function CreateBooking() {
           />
         </div>
 
-        {/* Contact Number */}
+        {/* Contact */}
         <div className="col-md-6">
           <label className="form-label fw-bold">Contact Number</label>
           <input
@@ -325,7 +335,6 @@ function CreateBooking() {
               </option>
             ))}
           </select>
-         
         </div>
 
         {/* Total Amount */}
@@ -343,7 +352,7 @@ function CreateBooking() {
           />
           {isAmountInvalid && (
             <div className="text-danger mt-1">
-              ⚠️ Total amount must be at least ₹{runningCost}.
+              ⚠ Total amount must be at least ₹{runningCost}.
             </div>
           )}
         </div>
@@ -421,7 +430,3 @@ function CreateBooking() {
 }
 
 export default CreateBooking;
-
-
-
-
