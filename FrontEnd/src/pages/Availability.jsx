@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
-import { all } from "axios";
 
 function Availability() {
   const [availability, setAvailability] = useState([]);
@@ -13,85 +12,106 @@ function Availability() {
   const [detailedYacht, setDetailedYacht] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Filters
-  const [filterDate, setFilterDate] = useState("");
+  // ✅ Default date = today
+  const [filterDate, setFilterDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  });
+
   const [filterCapacity, setFilterCapacity] = useState("");
   const [filterBudget, setFilterBudget] = useState("");
 
   const navigate = useNavigate();
   const token = localStorage.getItem("authToken");
 
-  // 🧭 Fetch weekly availability summary
-  useEffect(() => {
-    const fetchAvailability = async () => {
-      try {
-        setLoading(true);
-        const today = new Date();
-        const fiveDaysLater = new Date();
-        fiveDaysLater.setDate(today.getDate() + 5);
+  // ✅ Single reusable fetch function
+  const fetchAvailability = async (customDate) => {
+    try {
+      setLoading(true);
 
-        const startDate = today.toISOString().split("T")[0];
-        const endDate = fiveDaysLater.toISOString().split("T")[0];
+      const start = customDate ? new Date(customDate) : new Date();
+      const end = new Date(start);
+      end.setDate(start.getDate() + 5);
 
-        const weekLabel = `${today.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-        })} - ${fiveDaysLater.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })}`;
-        setSelectedWeek(weekLabel);
+      const startDate = start.toISOString().split("T")[0];
+      const endDate = end.toISOString().split("T")[0];
 
-        const res = await getAvailabilitySummary(startDate, endDate, token);
-        console.log("first", JSON.stringify(res.yachts, null, 2));
+      const weekLabel = `${start.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+      })} - ${end.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })}`;
 
-        if (res?.success && res?.yachts) {
-          const formatted = res.yachts.map((y) => ({
-            yachtId: y.yachtId || y._id,
-            name: y.name || y.yachtName,
-            company: y.company,
-            capacity: y.capacity,
-            status: y.status,
-            sellingPrice: y.sellingPrice || y.maxSellingPrice || 0,
-            yachtPhotos:
-              y.yachtPhotos && y.yachtPhotos.length > 0
-                ? y.yachtPhotos
-                : y.photos && y.photos.length > 0
-                ? y.photos
-                : ["/default-yacht.jpg"],
-            email: `${(y.name || y.yachtName)
-              ?.toLowerCase()
-              ?.replace(/\s/g, "")}@gmail.com`,
-            days: y.availability.map((a) => ({
-              day: new Date(a.date).toLocaleDateString("en-US", {
-                weekday: "short",
-              }),
-              date: new Date(a.date).toISOString().split("T")[0],
-              status:
-                a.status === "busy"
-                  ? "Busy"
-                  : a.status === "locked"
-                  ? "Locked"
-                  : "Free",
-              bookedSlots: a.bookingsCount
-                ? Array(a.bookingsCount).fill({})
-                : [],
-            })),
-          }));
-          setAvailability(formatted);
-        }
-      } catch (err) {
-        console.error("Failed to fetch availability:", err);
-      } finally {
-        setLoading(false);
+      setSelectedWeek(weekLabel);
+
+      const res = await getAvailabilitySummary(startDate, endDate, token);
+
+      if (res?.success && res?.yachts) {
+        const formatted = res.yachts.map((y) => ({
+          yachtId: y.yachtId || y._id,
+          name: y.name || y.yachtName,
+          company: y.company,
+          capacity: y.capacity,
+          status: y.status,
+          sellingPrice: y.sellingPrice || y.maxSellingPrice || 0,
+          yachtPhotos: y.yachtPhotos?.length
+            ? y.yachtPhotos
+            : y.photos?.length
+            ? y.photos
+            : ["/default-yacht.jpg"],
+          email: `${(y.name || y.yachtName)
+            ?.toLowerCase()
+            ?.replace(/\s/g, "")}@gmail.com`,
+          days: y.availability.map((a) => ({
+            day: new Date(a.date).toLocaleDateString("en-US", {
+              weekday: "short",
+            }),
+            date: new Date(a.date).toISOString().split("T")[0],
+            status:
+              a.status === "busy"
+                ? "Busy"
+                : a.status === "locked"
+                ? "Locked"
+                : "Free",
+            bookedSlots: a.bookingsCount
+              ? Array(a.bookingsCount).fill({})
+              : [],
+          })),
+        }));
+
+        setAvailability(formatted);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch availability:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (token) fetchAvailability();
+  // ✅ First load — today's date
+  useEffect(() => {
+    if (token) fetchAvailability(filterDate);
   }, [token]);
 
-  // 🧭 Handle date cell click
+  // ✅ Auto-fetch when date changes
+  useEffect(() => {
+    if (token && filterDate) {
+      fetchAvailability(filterDate);
+    }
+  }, [filterDate]);
+
+  // ✅ Clear filters → set today → auto fetch triggers
+  const handleClear = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setFilterDate(today);
+    setFilterCapacity("");
+    setFilterBudget("");
+  };
+
+  // ✅ Navigate for booking
   const handleDayClick = (yacht, day) => {
     if (!yacht || !day) return;
 
@@ -110,37 +130,27 @@ function Availability() {
     });
   };
 
-  // 🔍 Handle yacht details modal
+  // ✅ Yacht Details Modal
   const handleYachtClick = async (yacht) => {
     setSelectedYacht(yacht);
     setLoadingDetails(true);
 
     try {
       const res = await getAllYachtsDetailsAPI(token);
-
       const allYachts = res?.data?.yachts || [];
-      console.log("Here is all Yachts" + allYachts);
+
       const details = allYachts.find((y) => y._id === yacht.yachtId);
 
-      if (details) {
-        setDetailedYacht({
-          ...details,
-          yachtPhotos:
-            details.yachtPhotos && details.yachtPhotos.length > 0
-              ? details.yachtPhotos
-              : ["/default-yacht.jpg"],
-          currentImageIndex: 0,
-        });
-      } else {
-        setDetailedYacht({
-          ...yacht,
-          yachtPhotos:
-            yacht.yachtPhotos && yacht.yachtPhotos.length > 0
-              ? yacht.yachtPhotos
-              : ["/default-yacht.jpg"],
-          currentImageIndex: 0,
-        });
-      }
+      setDetailedYacht({
+        ...(details || yacht),
+        yachtPhotos:
+          details?.yachtPhotos?.length
+            ? details.yachtPhotos
+            : yacht.yachtPhotos?.length
+            ? yacht.yachtPhotos
+            : ["/default-yacht.jpg"],
+        currentImageIndex: 0,
+      });
     } catch (error) {
       console.error("Error fetching detailed yacht info:", error);
     } finally {
@@ -153,9 +163,8 @@ function Availability() {
     setDetailedYacht(null);
   };
 
-  // 🎛️ Filter Logic
+  // ✅ Apply budget & capacity filters
   const filteredAvailability = availability.filter((yacht) => {
-    // Capacity filter
     if (filterCapacity === "small" && yacht.capacity > 5) return false;
     if (
       filterCapacity === "medium" &&
@@ -169,7 +178,6 @@ function Availability() {
       return false;
     if (filterCapacity === "xlarge" && yacht.capacity <= 20) return false;
 
-    // Budget filter
     if (filterBudget === "low" && yacht.sellingPrice >= 5000) return false;
     if (
       filterBudget === "mid" &&
@@ -183,7 +191,6 @@ function Availability() {
       return false;
     if (filterBudget === "premium" && yacht.sellingPrice <= 20000) return false;
 
-    // Date filter
     if (filterDate) {
       return yacht.days.some((d) => d.date === filterDate);
     }
@@ -191,26 +198,19 @@ function Availability() {
     return true;
   });
 
-  const handleClear = () => {
-    setFilterDate("");
-    setFilterCapacity("");
-    setFilterBudget("");
-  };
-
   return (
     <div className="container mt-4">
       <h3 className="text-center mb-3">Yacht Availability</h3>
 
-      {/* 🗓️ Week Range */}
+      {/* Week Range */}
       <div className="text-center mb-3">
         <h6 className="mb-0 fw-semibold">{selectedWeek}</h6>
       </div>
 
-      {/* Filters Row */}
+      {/* Filters */}
       <div className="d-flex flex-wrap justify-content-between align-items-end mb-4">
-        {/* Left Side — Capacity & Budget */}
         <div className="d-flex flex-wrap gap-3">
-          {/* Capacity Filter */}
+          {/* Capacity */}
           <div>
             <label className="form-label mb-1">Capacity</label>
             <select
@@ -227,7 +227,7 @@ function Availability() {
             </select>
           </div>
 
-          {/* Budget Filter */}
+          {/* Budget */}
           <div>
             <label className="form-label mb-1">Budget</label>
             <select
@@ -245,9 +245,8 @@ function Availability() {
           </div>
         </div>
 
-        {/* Right Side — Date & Buttons */}
+        {/* Date + Clear */}
         <div className="d-flex flex-wrap align-items-end gap-3">
-          {/* Date Filter */}
           <div>
             <label className="form-label mb-1">Date</label>
             <input
@@ -260,9 +259,7 @@ function Availability() {
             />
           </div>
 
-          {/* Buttons */}
           <div className="d-flex gap-2">
-            <button className="btn btn-primary">Apply</button>
             <button className="btn btn-secondary" onClick={handleClear}>
               Clear
             </button>
@@ -270,7 +267,7 @@ function Availability() {
         </div>
       </div>
 
-      {/* 📊 Availability Table */}
+      {/* Availability Table */}
       {loading ? (
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
@@ -345,7 +342,7 @@ function Availability() {
         ))
       )}
 
-      {/* 📋 Yacht Details Modal */}
+      {/* Yacht Details Modal */}
       {selectedYacht && detailedYacht && (
         <div
           className="modal fade show"
@@ -420,7 +417,8 @@ function Availability() {
                               setDetailedYacht((prev) => ({
                                 ...prev,
                                 currentImageIndex:
-                                  (prev.currentImageIndex + 1) %
+                                  (prev.currentImageIndex +
+                                    1) %
                                   prev.yachtPhotos.length,
                               }))
                             }
