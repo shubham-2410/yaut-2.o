@@ -22,6 +22,7 @@ function DayAvailability() {
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [yacht, setYacht] = useState(null);
+  const [error, setError] = useState("");
 
   const token = localStorage.getItem("authToken");
 
@@ -56,13 +57,25 @@ function DayAvailability() {
     return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  // 🔹 Convert 24hr "HH:MM" to 12hr format with AM/PM
+  // Convert to 12-hour format
   const to12HourFormat = (time24) => {
     if (!time24) return "";
     const [hour, minute] = time24.split(":").map(Number);
     const period = hour >= 12 ? "PM" : "AM";
     const hour12 = hour % 12 === 0 ? 12 : hour % 12;
     return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
+  };
+
+  // ✅ NEW — Disable past slots for today's date
+  const isPastSlot = (slot) => {
+    const today = new Date().toISOString().split("T")[0];
+    if (day.date !== today) return false; // only restrict today
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const slotEnd = hhmmToMinutes(slot.end);
+
+    return slotEnd <= currentMinutes;
   };
 
   const buildSlotsForYacht = (yachtObj) => {
@@ -130,6 +143,7 @@ function DayAvailability() {
   const fetchTimeline = async () => {
     try {
       setLoading(true);
+      setError("");
       const yachtRes = await getYachtById(yachtId, token);
       const yachtData = yachtRes?.data?.yacht ?? yachtRes?.yacht ?? yachtRes;
       setYacht(yachtData);
@@ -146,6 +160,7 @@ function DayAvailability() {
       }
     } catch (err) {
       console.error("❌ Failed to fetch timeline:", err);
+      setError(err.response?.data?.message || "Failed to create booking");
       setTimeline([]);
     } finally {
       setLoading(false);
@@ -154,13 +169,13 @@ function DayAvailability() {
 
   useEffect(() => {
     fetchTimeline();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yachtId, day.date]);
 
   // ---------- Slot Interactions ----------
   const handleSlotClick = (slot) => {
     if (slot.type === "booked") return alert("⛔ This slot is already booked.");
     setSelectedSlot(slot);
+
     const modalId = slot.type === "locked" ? "confirmModal" : "lockModal";
     new window.bootstrap.Modal(document.getElementById(modalId)).show();
   };
@@ -239,6 +254,7 @@ function DayAvailability() {
       >
         ← Back
       </button>
+      {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="card shadow-sm mb-4 border-0 rounded-4">
         <div className="card-body text-center bg-light rounded-4 py-3">
@@ -250,11 +266,12 @@ function DayAvailability() {
       </div>
 
       <div className="availability-wrapper">
-
         {/* LEFT: Calendar */}
         <div className="availability-left">
           <div className="card shadow-sm border-0 p-3 rounded-4">
-            <h5 className="text-center fw-semibold text-secondary mb-3">📅 Select Date</h5>
+            <h5 className="text-center fw-semibold text-secondary mb-3">
+              📅 Select Date
+            </h5>
             <Calendar
               onChange={(selectedDate) => {
                 const year = selectedDate.getFullYear();
@@ -264,7 +281,9 @@ function DayAvailability() {
 
                 const newDay = {
                   date: iso,
-                  day: selectedDate.toLocaleDateString("en-US", { weekday: "long" }),
+                  day: selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  }),
                 };
 
                 location.state.day = newDay;
@@ -282,47 +301,63 @@ function DayAvailability() {
         {/* RIGHT: Slots */}
         <div className="availability-right">
           <div className="card shadow-sm border-0 rounded-4 p-3">
-            <h5 className="fw-semibold mb-3 text-center text-secondary">🕒 Available Time Slots</h5>
+            <h5 className="fw-semibold mb-3 text-center text-secondary">
+              🕒 Available Time Slots
+            </h5>
 
-            {/* Existing timeline code stays here unchanged */}
             {loading ? (
               <div className="text-center my-5">
                 <div className="spinner-border text-primary"></div>
               </div>
             ) : timeline.length === 0 ? (
-              <div className="text-center text-muted py-5">No available slots for this date.</div>
+              <div className="text-center text-muted py-5">
+                No available slots for this date.
+              </div>
             ) : (
               <>
                 <div className="d-flex flex-wrap gap-2 justify-content-center">
-                  {timeline.map((slot, idx) => (
-                    <div
-                      key={idx}
-                      className={`slot-btn px-3 py-2 rounded fw-semibold text-center ${slot.type === "booked"
-                        ? "bg-danger text-white"
-                        : slot.type === "locked"
-                          ? "bg-warning text-dark"
-                          : "bg-success text-white"
+                  {timeline.map((slot, idx) => {
+                    const disabled = isPastSlot(slot);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`slot-btn px-3 py-2 rounded fw-semibold text-center ${
+                          disabled
+                            ? "bg-secondary text-white opacity-50"
+                            : slot.type === "booked"
+                            ? "bg-danger text-white"
+                            : slot.type === "locked"
+                            ? "bg-warning text-dark"
+                            : "bg-success text-white"
                         }`}
-                      style={{ cursor: slot.type === "booked" ? "not-allowed" : "pointer" }}
-                      onClick={() => handleSlotClick(slot)}
-                    >
-                      {to12HourFormat(slot.start)} — {to12HourFormat(slot.end)}
-                    </div>
-                  ))}
+                        style={{
+                          cursor:
+                            slot.type === "booked" || disabled
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                        onClick={() => {
+                          if (!disabled) handleSlotClick(slot);
+                        }}
+                      >
+                        {to12HourFormat(slot.start)} — {to12HourFormat(slot.end)}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 text-center">
                   <span className="badge bg-success me-2">Free</span>
                   <span className="badge bg-warning text-dark me-2">Locked</span>
-                  <span className="badge bg-danger">Booked</span>
+                  <span className="badge bg-danger me-2">Booked</span>
+                  <span className="badge bg-secondary">Past (Today)</span>
                 </div>
               </>
             )}
           </div>
         </div>
-
       </div>
-
 
       {/* Lock Modal */}
       <div className="modal fade" id="lockModal" tabIndex="-1" aria-hidden="true">
@@ -331,7 +366,11 @@ function DayAvailability() {
             <form onSubmit={handleLockSlot}>
               <div className="modal-header bg-warning bg-opacity-25">
                 <h5 className="modal-title">Lock Time Slot</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body text-center">
                 {selectedSlot && (
@@ -370,7 +409,11 @@ function DayAvailability() {
             <form onSubmit={handleConfirmBooking}>
               <div className="modal-header bg-primary bg-opacity-10">
                 <h5 className="modal-title">Confirm Booking</h5>
-                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                ></button>
               </div>
               <div className="modal-body text-center">
                 {selectedSlot && (

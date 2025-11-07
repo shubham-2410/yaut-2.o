@@ -235,7 +235,7 @@ export const getAvailabilitySummary = async (req, res, next) => {
 
     // Fetch yachts
     const yachts = await YachtModel.find({ company }).select(
-      "_id name capacity sellingPrice"
+      "_id name capacity sellingPrice status"
     );
     if (!yachts.length) {
       return res
@@ -293,13 +293,14 @@ export const getAvailabilitySummary = async (req, res, next) => {
           bookedTime: dayInfo.bookedTime, // in hours
         });
       }
-      console.log(yacht);
+      console.log("Inside availability " , yacht);
       return {
         yachtId: yacht._id,
         yachtName: yacht.name,
         capacity: yacht.capacity,
         sellingPrice: yacht.sellingPrice,
         availability: yachtData,
+        status: yacht.status
       };
     });
 

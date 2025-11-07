@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
+import { deleteYacht, getAllYachtsDetailsAPI, updateYacht } from "../services/operations/yautAPI";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 const AllYachts = () => {
@@ -34,10 +34,11 @@ const AllYachts = () => {
             y.yachtPhotos && y.yachtPhotos.length > 0
               ? y.yachtPhotos
               : y.photos && y.photos.length > 0
-              ? y.photos
-              : ["/default-yacht.jpg"],
+                ? y.photos
+                : ["/default-yacht.jpg"],
         }));
 
+        console.log("Here are yauts - ", yachtsWithImages)
         setYachts(yachtsWithImages);
       } catch (err) {
         console.error("❌ Error fetching yachts:", err);
@@ -51,38 +52,57 @@ const AllYachts = () => {
   }, []);
 
   // 🚦 Toggle status directly in table
-  const toggleStatus = (id) => {
-    setYachts((prev) =>
-      prev.map((y) =>
-        y._id === id
-          ? { ...y, status: y.status === "active" ? "inactive" : "active" }
-          : y
-      )
-    );
-  };
+  // const toggleStatus = (id) => {
+  //   setYachts((prev) =>
+  //     prev.map((y) =>
+  //       y._id === id
+  //         ? { ...y, status: y.status === "active" ? "inactive" : "active" }
+  //         : y
+  //     )
+  //   );
+  // };
 
   // 🚮 Delete yacht handler
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedYacht) return;
-    setYachts((prev) => prev.filter((y) => y._id !== selectedYacht._id));
-    setShowDeleteModal(false);
-    alert("Yacht deleted successfully!");
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      const response = await deleteYacht(selectedYacht._id, token);
+      setYachts((prev) => prev.filter((y) => y._id !== selectedYacht._id));
+      alert("Yacht deleted successfully!");
+    } catch (err) {
+      console.error("❌ Error deleting yacht:", err);
+      setError(err?.response?.data?.message || "Failed to delete yacht");
+    } finally {
+      setLoading(false);
+      setShowDeleteModal(false);
+    }
   };
 
   // ✏️ Handle edit form save
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!selectedYacht) return;
 
     if (!selectedYacht.name || !selectedYacht.runningCost) {
       alert("Please fill in required fields (Name, Running Cost)");
       return;
     }
-
-    setYachts((prev) =>
-      prev.map((y) => (y._id === selectedYacht._id ? selectedYacht : y))
-    );
-    setShowEditModal(false);
-    alert("Yacht details updated!");
+    
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await updateYacht(selectedYacht._id, selectedYacht, token)
+      setYachts((prev) =>
+        prev.map((y) => (y._id === selectedYacht._id ? selectedYacht : y))
+      );
+      alert("Yacht details updated!");
+    } catch (err) {
+      console.error("❌ Error Updating yachts:", err);
+      setError(err?.response?.data?.message || "Failed to Update yacht");
+    } finally {
+      setLoading(false);
+      setShowEditModal(false);
+    }
   };
 
   const closeAllModals = () => {
@@ -144,13 +164,12 @@ const AllYachts = () => {
                   </td>
                   <td className="d-none d-sm-table-cell">
                     <span
-                      className={`badge ${
-                        yacht.status === "active"
+                      className={`badge ${yacht.status === "active"
                           ? "bg-success"
                           : "bg-secondary"
-                      }`}
+                        }`}
                       style={{ cursor: "pointer" }}
-                      onClick={() => toggleStatus(yacht._id)}
+                    // onClick={() => toggleStatus(yacht._id)}
                     >
                       {yacht.status}
                     </span>
@@ -232,8 +251,8 @@ const AllYachts = () => {
                         {selectedYacht.runningCost?.toLocaleString()}
                       </li>
                       <li className="list-group-item">
-                        <strong>Price:</strong> ₹
-                        {selectedYacht.price?.toLocaleString()}
+                        <strong>MaxSelling Price:</strong> ₹
+                        {selectedYacht?.maxSellingPrice?.toLocaleString() || selectedYacht?.price?.toLocaleString()}
                       </li>
                       <li className="list-group-item">
                         <strong>Selling Price:</strong> ₹
@@ -263,9 +282,8 @@ const AllYachts = () => {
                           {selectedYacht.images.map((img, idx) => (
                             <div
                               key={idx}
-                              className={`carousel-item ${
-                                idx === 0 ? "active" : ""
-                              }`}
+                              className={`carousel-item ${idx === 0 ? "active" : ""
+                                }`}
                             >
                               <img
                                 src={img}
@@ -334,7 +352,7 @@ const AllYachts = () => {
                     "capacity",
                     "duration",
                     "runningCost",
-                    "price",
+                    "maxSellingPrice",
                     "sellingPrice",
                     "sailStartTime",
                     "sailEndTime",
@@ -348,8 +366,8 @@ const AllYachts = () => {
                           field === "name"
                             ? "text"
                             : field.toLowerCase().includes("time")
-                            ? "time"
-                            : "number"
+                              ? "time"
+                              : "number"
                         }
                         className="form-control"
                         value={selectedYacht[field] || ""}

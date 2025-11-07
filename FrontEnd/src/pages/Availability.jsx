@@ -1,117 +1,123 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
 
 function Availability() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("authToken");
+
+  // Data + UI state
   const [availability, setAvailability] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Modal state
   const [selectedYacht, setSelectedYacht] = useState(null);
   const [detailedYacht, setDetailedYacht] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // ✅ Default date = today
-  const [filterDate, setFilterDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
-
+  // Filters (defaults)
+  const [filterDate, setFilterDate] = useState(() =>
+    new Date().toISOString().split("T")[0]
+  );
   const [filterCapacity, setFilterCapacity] = useState("");
   const [filterBudget, setFilterBudget] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Active"); // default = Active (capitalized)
 
-  const navigate = useNavigate();
-  const token = localStorage.getItem("authToken");
+  /**
+   * Fetch availability summary for 6-day window starting at `customDate` (YYYY-MM-DD)
+   */
+  const fetchAvailability = useCallback(
+    async (customDate) => {
+      if (!token) return;
+      try {
+        setLoading(true);
 
-  // ✅ Single reusable fetch function
-  const fetchAvailability = async (customDate) => {
-    try {
-      setLoading(true);
+        const start = customDate ? new Date(customDate) : new Date();
+        const end = new Date(start);
+        end.setDate(start.getDate() + 5);
 
-      const start = customDate ? new Date(customDate) : new Date();
-      const end = new Date(start);
-      end.setDate(start.getDate() + 5);
+        const startDate = start.toISOString().split("T")[0];
+        const endDate = end.toISOString().split("T")[0];
 
-      const startDate = start.toISOString().split("T")[0];
-      const endDate = end.toISOString().split("T")[0];
+        // update week label
+        const weekLabel = `${start.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+        })} - ${end.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}`;
+        setSelectedWeek(weekLabel);
 
-      const weekLabel = `${start.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-      })} - ${end.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })}`;
+        const res = await getAvailabilitySummary(startDate, endDate, token);
 
-      setSelectedWeek(weekLabel);
+        if (res?.success && res?.yachts) {
+          const formatted = res.yachts.map((y) => ({
+            yachtId: y.yachtId || y._id,
+            name: y.name || y.yachtName,
+            company: y.company,
+            capacity: y.capacity,
+            status: y.status,
+            sellingPrice: y.sellingPrice || y.maxSellingPrice || 0,
+            yachtPhotos:
+              y.yachtPhotos?.length > 0
+                ? y.yachtPhotos
+                : y.photos?.length > 0
+                ? y.photos
+                : ["/default-yacht.jpg"],
+            days: (y.availability || []).map((a) => ({
+              day: new Date(a.date).toLocaleDateString("en-US", {
+                weekday: "short",
+              }),
+              date: new Date(a.date).toISOString().split("T")[0],
+              status:
+                a.status === "busy"
+                  ? "Busy"
+                  : a.status === "locked"
+                  ? "Locked"
+                  : "Free",
+              bookedSlots: a.bookingsCount
+                ? Array(a.bookingsCount).fill({})
+                : [],
+            })),
+          }));
 
-      const res = await getAvailabilitySummary(startDate, endDate, token);
-
-      if (res?.success && res?.yachts) {
-        const formatted = res.yachts.map((y) => ({
-          yachtId: y.yachtId || y._id,
-          name: y.name || y.yachtName,
-          company: y.company,
-          capacity: y.capacity,
-          status: y.status,
-          sellingPrice: y.sellingPrice || y.maxSellingPrice || 0,
-          yachtPhotos: y.yachtPhotos?.length
-            ? y.yachtPhotos
-            : y.photos?.length
-            ? y.photos
-            : ["/default-yacht.jpg"],
-          email: `${(y.name || y.yachtName)
-            ?.toLowerCase()
-            ?.replace(/\s/g, "")}@gmail.com`,
-          days: y.availability.map((a) => ({
-            day: new Date(a.date).toLocaleDateString("en-US", {
-              weekday: "short",
-            }),
-            date: new Date(a.date).toISOString().split("T")[0],
-            status:
-              a.status === "busy"
-                ? "Busy"
-                : a.status === "locked"
-                ? "Locked"
-                : "Free",
-            bookedSlots: a.bookingsCount
-              ? Array(a.bookingsCount).fill({})
-              : [],
-          })),
-        }));
-
-        setAvailability(formatted);
+          setAvailability(formatted);
+        } else {
+          setAvailability([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch availability:", err);
+        setAvailability([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch availability:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [token]
+  );
 
-  // ✅ First load — today's date
-  useEffect(() => {
-    if (token) fetchAvailability(filterDate);
-  }, [token]);
-
-  // ✅ Auto-fetch when date changes
+  // Fetch when component mounts and whenever token or filterDate changes
   useEffect(() => {
     if (token && filterDate) {
       fetchAvailability(filterDate);
     }
-  }, [filterDate]);
+  }, [token, filterDate, fetchAvailability]);
 
-  // ✅ Clear filters → set today → auto fetch triggers
+  // Clear filters (resets to defaults)
   const handleClear = () => {
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);
     setFilterCapacity("");
     setFilterBudget("");
+    setFilterStatus("Active");
+    // fetch will run due to filterDate change useEffect
   };
 
-  // ✅ Navigate for booking
+  // Navigate to booking page for selected yacht date
   const handleDayClick = (yacht, day) => {
     if (!yacht || !day) return;
 
@@ -130,7 +136,7 @@ function Availability() {
     });
   };
 
-  // ✅ Yacht Details Modal
+  // Fetch yacht details and open modal
   const handleYachtClick = async (yacht) => {
     setSelectedYacht(yacht);
     setLoadingDetails(true);
@@ -138,21 +144,27 @@ function Availability() {
     try {
       const res = await getAllYachtsDetailsAPI(token);
       const allYachts = res?.data?.yachts || [];
-
       const details = allYachts.find((y) => y._id === yacht.yachtId);
 
       setDetailedYacht({
         ...(details || yacht),
         yachtPhotos:
-          details?.yachtPhotos?.length
+          details?.yachtPhotos?.length > 0
             ? details.yachtPhotos
-            : yacht.yachtPhotos?.length
+            : yacht.yachtPhotos?.length > 0
             ? yacht.yachtPhotos
             : ["/default-yacht.jpg"],
         currentImageIndex: 0,
       });
     } catch (error) {
       console.error("Error fetching detailed yacht info:", error);
+      // fallback to passed yacht
+      setDetailedYacht({
+        ...yacht,
+        yachtPhotos:
+          yacht.yachtPhotos?.length > 0 ? yacht.yachtPhotos : ["/default-yacht.jpg"],
+        currentImageIndex: 0,
+      });
     } finally {
       setLoadingDetails(false);
     }
@@ -163,8 +175,15 @@ function Availability() {
     setDetailedYacht(null);
   };
 
-  // ✅ Apply budget & capacity filters
+  // Filtering logic (client-side). case-insensitive comparison for robustness.
   const filteredAvailability = availability.filter((yacht) => {
+    // Status Filter (default = Active)
+    if (filterStatus && filterStatus.toLowerCase() !== "all") {
+      if (!yacht.status) return false;
+      if (yacht.status.toLowerCase() !== filterStatus.toLowerCase()) return false;
+    }
+
+    // Capacity filter
     if (filterCapacity === "small" && yacht.capacity > 5) return false;
     if (
       filterCapacity === "medium" &&
@@ -178,6 +197,7 @@ function Availability() {
       return false;
     if (filterCapacity === "xlarge" && yacht.capacity <= 20) return false;
 
+    // Budget filter
     if (filterBudget === "low" && yacht.sellingPrice >= 5000) return false;
     if (
       filterBudget === "mid" &&
@@ -191,8 +211,9 @@ function Availability() {
       return false;
     if (filterBudget === "premium" && yacht.sellingPrice <= 20000) return false;
 
+    // Date filter: ensure that the yacht has the selected date in its days
     if (filterDate) {
-      return yacht.days.some((d) => d.date === filterDate);
+      return yacht.days && yacht.days.some((d) => d.date === filterDate);
     }
 
     return true;
@@ -243,6 +264,21 @@ function Availability() {
               <option value="premium">Above ₹20,000</option>
             </select>
           </div>
+
+          {/* Status (Active/Inactive) */}
+          <div>
+            <label className="form-label mb-1">Status</label>
+            <select
+              className="form-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ maxWidth: "150px" }}
+            >
+              <option value="all">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
         </div>
 
         {/* Date + Clear */}
@@ -278,7 +314,7 @@ function Availability() {
         </div>
       ) : (
         filteredAvailability.map((yacht, index) => (
-          <div key={index} className="card shadow-sm mb-4">
+          <div key={yacht.yachtId || index} className="card shadow-sm mb-4">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
@@ -289,10 +325,10 @@ function Availability() {
                   >
                     {yacht.name}
                   </h5>
-                  <small className="text-muted">
-                    {yacht.email} | Capacity: {yacht.capacity} | ₹
-                    {yacht.sellingPrice}
-                  </small>
+                  <strong className="text-muted">
+                    Capacity: {yacht.capacity} | Selling Price : ₹
+                    {yacht.sellingPrice} | Status : {yacht.status?.charAt(0).toUpperCase() + yacht.status?.slice(1).toLowerCase()}
+                  </strong>
                 </div>
               </div>
 
@@ -417,8 +453,7 @@ function Availability() {
                               setDetailedYacht((prev) => ({
                                 ...prev,
                                 currentImageIndex:
-                                  (prev.currentImageIndex +
-                                    1) %
+                                  (prev.currentImageIndex + 1) %
                                   prev.yachtPhotos.length,
                               }))
                             }
@@ -447,7 +482,7 @@ function Availability() {
                           <td>
                             <span
                               className={`badge ${
-                                detailedYacht.status === "active"
+                                detailedYacht.status?.toLowerCase() === "active"
                                   ? "bg-success"
                                   : "bg-danger"
                               }`}

@@ -77,3 +77,41 @@ export const getYachtById = async (id, token) => {
     throw error;
   }
 };
+
+export const deleteYacht = async (id, token) => {
+  try {
+    const response = await apiConnector(
+      "DELETE",
+      yaut.DELETE_YACHT_API(id),
+      null,
+      {
+        Authorization: `Bearer ${token}`,
+      }
+    );
+
+    return response;
+  } catch (error) {
+    console.error("❌ Failed to delete yacht:", error.response?.data || error);
+    throw error;
+  }
+};
+
+
+export const updateYacht = async (id, data, token) => {
+  console.log("Here is edit yacht data - ", data);
+  try {
+    const response = await apiConnector(
+      "PUT",
+      yaut.UPDATE_YACHT_API(id),
+      data,
+      {
+        Authorization: `Bearer ${token}`,
+      }
+    );
+
+    return response;
+  } catch (error) {
+    console.error("❌ Failed to update yacht:", error.response?.data || error);
+    throw error;
+  }
+};
