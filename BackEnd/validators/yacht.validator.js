@@ -22,10 +22,11 @@ export const yachtSchema = z.object({
     (val) => (val ? Number(val) : undefined),
     z.number({ required_error: "Selling price is required" }).min(0)
   ),
-  price: z.preprocess((val) => Number(val), z.number()),
+  maxSellingPrice: z.preprocess((val) => Number(val), z.number()),
   yachtPhotos: z
     .array(z.string().url("Invalid photo URL"))
-    .nonempty("At least one photo is required").optional(),
+    .nonempty("At least one photo is required")
+    .optional(),
 
   status: z.enum(["active", "inactive"]).default("active"),
 
@@ -33,5 +34,5 @@ export const yachtSchema = z.object({
   sailStartTime: z.string().min(1, "Start Time is required"),
   sailEndTime: z.string().min(1, "End Time is required"),
   duration: z.string().min(1, "Sail Duration is required"),
-  specialSlotTime: z.string().min(1, "Special Duration").optional()
+  specialSlotTime: z.string().min(1, "Special slot").optional(),
 });
