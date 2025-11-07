@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBookingsAPI } from "../services/operations/bookingAPI"; // using apiConnector
+import { getBookingsAPI } from "../services/operations/bookingAPI";
 
 function Bookings({ user }) {
   const navigate = useNavigate();
@@ -24,25 +24,30 @@ function Bookings({ user }) {
     }
   };
 
+  // ✅ Load today's bookings on mount
   useEffect(() => {
-    // 🟢 Default: today's date
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);
     fetchBookings({ date: today });
   }, []);
 
-  const handleFilter = () => {
+  // ✅ Auto-fetch whenever date or status changes
+  useEffect(() => {
+    if (!filterDate && !filterStatus) return;
+
     const filters = {};
     if (filterDate) filters.date = filterDate;
     if (filterStatus) filters.status = filterStatus;
-    fetchBookings(filters);
-  };
 
+    fetchBookings(filters);
+  }, [filterDate, filterStatus]);
+
+  // ✅ Clear and auto-fetch
   const handleClear = () => {
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);
     setFilterStatus("");
-    fetchBookings({ date: today });
+    // Auto-fetch triggers automatically from useEffect
   };
 
   const handleViewDetails = (booking) =>
@@ -64,7 +69,7 @@ function Bookings({ user }) {
         )}
       </div>
 
-      {/* Filters Row */}
+      {/* Filters */}
       <div className="d-flex flex-wrap gap-2 mb-3">
         <input
           type="date"
@@ -72,8 +77,9 @@ function Bookings({ user }) {
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
           style={{ maxWidth: "200px" }}
-          min={new Date().toISOString().split("T")[0]} // ⬅️ Prevent past dates
+          min={new Date().toISOString().split("T")[0]}
         />
+
         <select
           className="form-select"
           value={filterStatus}
@@ -85,9 +91,7 @@ function Bookings({ user }) {
           <option value="Completed">Completed</option>
           <option value="Terminated">Terminated</option>
         </select>
-        <button className="btn btn-primary" onClick={handleFilter}>
-          Filter
-        </button>
+
         <button className="btn btn-secondary" onClick={handleClear}>
           Clear
         </button>
@@ -106,6 +110,7 @@ function Bookings({ user }) {
                   <p>Yacht: {booking.yachtId?.name}</p>
                   <p>Ticket : {booking._id.toString().slice(-5).toUpperCase()}</p>
                   <p>Date: {new Date(booking.date).toISOString().split("T")[0]}</p>
+
                   <p>
                     Status:{" "}
                     <span
@@ -120,6 +125,7 @@ function Bookings({ user }) {
                       {booking.status}
                     </span>
                   </p>
+
                   <div className="d-flex gap-2">
                     <button
                       className="btn btn-primary flex-fill"
@@ -127,6 +133,7 @@ function Bookings({ user }) {
                     >
                       View Details
                     </button>
+
                     {(user?.type === "admin" ||
                       user?.type === "backdesk" ||
                       user?.type === "onsite") && (
@@ -142,7 +149,7 @@ function Bookings({ user }) {
               </div>
             ))
           ) : (
-            <p className="text-center">No bookings found for today</p>
+            <p className="text-center">No bookings found</p>
           )}
         </div>
       )}

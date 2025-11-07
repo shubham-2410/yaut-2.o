@@ -232,7 +232,7 @@ function DayAvailability() {
 
   // ---------- Render ----------
   return (
-    <div className="container py-4">
+    <div className="container py-4 day-container">
       <button
         className="btn btn-outline-secondary mb-3 shadow-sm"
         onClick={() => navigate(-1)}
@@ -249,13 +249,12 @@ function DayAvailability() {
         </div>
       </div>
 
-      <div className="row">
-        {/* Left Calendar */}
-        <div className="col-md-4 mb-4">
+      <div className="availability-wrapper">
+
+        {/* LEFT: Calendar */}
+        <div className="availability-left">
           <div className="card shadow-sm border-0 p-3 rounded-4">
-            <h5 className="text-center fw-semibold text-secondary mb-3">
-              📅 Select Date
-            </h5>
+            <h5 className="text-center fw-semibold text-secondary mb-3">📅 Select Date</h5>
             <Calendar
               onChange={(selectedDate) => {
                 const year = selectedDate.getFullYear();
@@ -265,9 +264,7 @@ function DayAvailability() {
 
                 const newDay = {
                   date: iso,
-                  day: selectedDate.toLocaleDateString("en-US", {
-                    weekday: "long",
-                  }),
+                  day: selectedDate.toLocaleDateString("en-US", { weekday: "long" }),
                 };
 
                 location.state.day = newDay;
@@ -275,44 +272,38 @@ function DayAvailability() {
               }}
               value={new Date(day.date)}
               minDate={new Date()}
+              next2Label={null}
+              prev2Label={null}
               className="shadow-sm rounded-4"
             />
           </div>
         </div>
 
-        {/* Right Timeline */}
-        <div className="col-md-8">
+        {/* RIGHT: Slots */}
+        <div className="availability-right">
           <div className="card shadow-sm border-0 rounded-4 p-3">
-            <h5 className="fw-semibold mb-3 text-center text-secondary">
-              🕒 Available Time Slots
-            </h5>
+            <h5 className="fw-semibold mb-3 text-center text-secondary">🕒 Available Time Slots</h5>
 
+            {/* Existing timeline code stays here unchanged */}
             {loading ? (
               <div className="text-center my-5">
-                <div className="spinner-border text-primary" role="status"></div>
+                <div className="spinner-border text-primary"></div>
               </div>
             ) : timeline.length === 0 ? (
-              <div className="text-center text-muted py-5">
-                No available slots for this date.
-              </div>
+              <div className="text-center text-muted py-5">No available slots for this date.</div>
             ) : (
               <>
                 <div className="d-flex flex-wrap gap-2 justify-content-center">
                   {timeline.map((slot, idx) => (
                     <div
                       key={idx}
-                      className={`slot-btn px-3 py-2 rounded fw-semibold text-center ${
-                        slot.type === "booked"
-                          ? "bg-gradient bg-danger text-white"
-                          : slot.type === "locked"
-                          ? "bg-gradient bg-warning text-dark"
-                          : "bg-gradient bg-success text-white"
-                      }`}
-                      style={{
-                        cursor:
-                          slot.type === "booked" ? "not-allowed" : "pointer",
-                        transition: "all 0.2s",
-                      }}
+                      className={`slot-btn px-3 py-2 rounded fw-semibold text-center ${slot.type === "booked"
+                        ? "bg-danger text-white"
+                        : slot.type === "locked"
+                          ? "bg-warning text-dark"
+                          : "bg-success text-white"
+                        }`}
+                      style={{ cursor: slot.type === "booked" ? "not-allowed" : "pointer" }}
                       onClick={() => handleSlotClick(slot)}
                     >
                       {to12HourFormat(slot.start)} — {to12HourFormat(slot.end)}
@@ -322,16 +313,16 @@ function DayAvailability() {
 
                 <div className="mt-4 text-center">
                   <span className="badge bg-success me-2">Free</span>
-                  <span className="badge bg-warning text-dark me-2">
-                    Locked
-                  </span>
+                  <span className="badge bg-warning text-dark me-2">Locked</span>
                   <span className="badge bg-danger">Booked</span>
                 </div>
               </>
             )}
           </div>
         </div>
+
       </div>
+
 
       {/* Lock Modal */}
       <div className="modal fade" id="lockModal" tabIndex="-1" aria-hidden="true">
