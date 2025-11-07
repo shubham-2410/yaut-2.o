@@ -66,6 +66,15 @@ function CreateYacht() {
       "0"
     )}`;
   };
+  // Convert minutes to HH:MM string
+  const convertMinutesToHHMM = (mins) => {
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,8 +98,8 @@ function CreateYacht() {
         sailEndTime: yacht.sailEndTime,
         duration:
           yacht.duration === "custom"
-            ? Number(yacht.customDuration) / 60
-            : Number(yacht.duration) / 60,
+            ? convertMinutesToHHMM(Number(yacht.customDuration))
+            : convertMinutesToHHMM(Number(yacht.duration)),
         specialSlotTime: convertTo24Hour(yacht.specialSlotTime),
       };
       console.log("payload", payload);
