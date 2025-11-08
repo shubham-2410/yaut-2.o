@@ -25,7 +25,6 @@ export const yachtSchema = z.object({
   maxSellingPrice: z.preprocess((val) => Number(val), z.number()),
   yachtPhotos: z
     .array(z.string().url("Invalid photo URL"))
-    .nonempty("At least one photo is required")
     .optional(),
 
   status: z.enum(["active", "inactive"]).default("active"),
