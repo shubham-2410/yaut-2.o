@@ -171,7 +171,7 @@ const AllYachts = () => {
                       style={{ cursor: "pointer" }}
                     // onClick={() => toggleStatus(yacht._id)}
                     >
-                      {yacht.status}
+                      {yacht.status?.charAt(0).toUpperCase() + yacht.status?.slice(1).toLowerCase()}
                     </span>
                   </td>
                   <td>

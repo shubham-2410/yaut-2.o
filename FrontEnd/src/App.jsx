@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -23,43 +25,92 @@ import AllEmployees from "./pages/AllEmployees";
 import { Home } from "./pages/Home";
 
 function App() {
-  // Initialize user immediately from localStorage
   const storedUser = localStorage.getItem("user");
   const [user, setUser] = useState(storedUser ? JSON.parse(storedUser) : null);
-  const naviate = useNavigate();
+  const navigate = useNavigate();
   const role = user?.type?.toLowerCase();
 
-  const handleLogin = (data) => {
-    setUser(data);
-    localStorage.setItem("user", JSON.stringify(data));
-  };
-
-  const handleLogout = () => {
+  // ✅ LOGOUT FUNCTION
+  const logoutUser = () => {
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
-    naviate("/");
+    navigate("/");
   };
+
+  // ✅ LOGIN FUNCTION
+  const handleLogin = (data) => {
+    setUser(data);
+    localStorage.setItem("user", JSON.stringify(data));
+
+    const token = data?.token || localStorage.getItem("authToken");
+    if (token) scheduleAutoLogout(token);
+  };
+
+  // ✅ AUTO LOGOUT BASED ON TOKEN EXPIRY
+  const scheduleAutoLogout = (token) => {
+    try {
+      const decoded = jwtDecode(token);
+      const expiryTime = decoded.exp * 1000;
+      const timeout = expiryTime - Date.now();
+
+      if (timeout > 0) {
+        setTimeout(logoutUser, timeout);
+      } else {
+        logoutUser();
+      }
+    } catch (e) {
+      logoutUser();
+    }
+  };
+
+  // ✅ RUN ON PAGE LOAD / REFRESH
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        console.log("Decoded token is ", decoded);
+        if (Date.now() >= decoded.exp * 1000) {
+          logoutUser();
+        } else {
+          scheduleAutoLogout(token);
+        }
+      } catch {
+        logoutUser();
+      }
+    }
+  }, []);
+
+  // ✅ AXIOS INTERCEPTOR → Auto logout on 401
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        if (err.response?.status === 401) {
+          logoutUser();
+        }
+        return Promise.reject(err);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
 
   return (
     <>
-      {user && <Navbar user={user} onLogout={handleLogout} />}
+      {user && <Navbar user={user} onLogout={logoutUser} />}
 
       <Routes>
-        {/* Public route */}
+        {/* Public Route */}
         <Route
           path="/"
           element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />}
         />
 
-        <Route
-          path="/home"
-          element={
-            <Home></Home>
-          }
-        />
-        
-        {/* Protected routes */}
+        <Route path="/home" element={<Home />} />
+
+        {/* Protected Routes */}
         <Route
           path="/admin"
           element={
@@ -73,11 +124,9 @@ function App() {
           path="/customer-details"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role) ? (
-                <CustomerDetails />
-              ) : (
-                <NotFound />
-              )}
+              {["admin", "backdesk", "onsite"].includes(role)
+                ? <CustomerDetails />
+                : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -176,12 +225,14 @@ function App() {
           path="/update-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role) ? <UpdateBooking /> : <NotFound />}
+              {["admin", "backdesk", "onsite"].includes(role)
+                ? <UpdateBooking />
+                : <NotFound />}
             </ProtectedRoute>
           }
         />
 
-        {/* Fallback route */}
+        {/* Fallback Route */}
         <Route path="*" element={<NotFound user={user} />} />
       </Routes>
     </>
