@@ -1,34 +1,43 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { getAllYachtsDetailsAPI } from "../services/operations/yautAPI";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function Availability() {
   const navigate = useNavigate();
   const token = localStorage.getItem("authToken");
 
-  // Data + UI state
   const [availability, setAvailability] = useState([]);
   const [selectedWeek, setSelectedWeek] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Modal state
   const [selectedYacht, setSelectedYacht] = useState(null);
   const [detailedYacht, setDetailedYacht] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Filters (defaults)
-  const [filterDate, setFilterDate] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
-  const [filterCapacity, setFilterCapacity] = useState("");
-  const [filterBudget, setFilterBudget] = useState("");
-  const [filterStatus, setFilterStatus] = useState("Active"); // default = Active (capitalized)
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
 
-  /**
-   * Fetch availability summary for 6-day window starting at `customDate` (YYYY-MM-DD)
-   */
+  const [filterDate, setFilterDate] = useState(
+    params.get("date") || new Date().toISOString().split("T")[0]
+  );
+  const [filterCapacity, setFilterCapacity] = useState(params.get("capacity") || "");
+  const [filterBudget, setFilterBudget] = useState(params.get("budget") || "");
+  const [filterStatus, setFilterStatus] = useState(params.get("status") || "Active");
+
+  // Sync filters into URL
+  useEffect(() => {
+    const p = new URLSearchParams();
+    p.set("date", filterDate);
+    p.set("capacity", filterCapacity);
+    p.set("budget", filterBudget);
+    p.set("status", filterStatus);
+
+    navigate({ search: p.toString() }, { replace: true });
+  }, [filterDate, filterCapacity, filterBudget, filterStatus, navigate]);
+
+  // Fetch availability summary
   const fetchAvailability = useCallback(
     async (customDate) => {
       if (!token) return;
@@ -42,7 +51,6 @@ function Availability() {
         const startDate = start.toISOString().split("T")[0];
         const endDate = end.toISOString().split("T")[0];
 
-        // update week label
         const weekLabel = `${start.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
@@ -51,6 +59,7 @@ function Availability() {
           day: "numeric",
           year: "numeric",
         })}`;
+
         setSelectedWeek(weekLabel);
 
         const res = await getAvailabilitySummary(startDate, endDate, token);
@@ -70,9 +79,7 @@ function Availability() {
                 ? y.photos
                 : ["/default-yacht.jpg"],
             days: (y.availability || []).map((a) => ({
-              day: new Date(a.date).toLocaleDateString("en-US", {
-                weekday: "short",
-              }),
+              day: new Date(a.date).toLocaleDateString("en-US", { weekday: "short" }),
               date: new Date(a.date).toISOString().split("T")[0],
               status:
                 a.status === "busy"
@@ -80,9 +87,7 @@ function Availability() {
                   : a.status === "locked"
                   ? "Locked"
                   : "Free",
-              bookedSlots: a.bookingsCount
-                ? Array(a.bookingsCount).fill({})
-                : [],
+              bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
             })),
           }));
 
@@ -100,29 +105,22 @@ function Availability() {
     [token]
   );
 
-  // Fetch when component mounts and whenever token or filterDate changes
   useEffect(() => {
-    if (token && filterDate) {
-      fetchAvailability(filterDate);
-    }
+    if (token && filterDate) fetchAvailability(filterDate);
   }, [token, filterDate, fetchAvailability]);
 
-  // Clear filters (resets to defaults)
   const handleClear = () => {
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);
     setFilterCapacity("");
     setFilterBudget("");
     setFilterStatus("Active");
-    // fetch will run due to filterDate change useEffect
   };
 
-  // Navigate to booking page for selected yacht date
   const handleDayClick = (yacht, day) => {
-    if (!yacht || !day) return;
-
     const today = new Date();
     const clickedDate = new Date(day.date);
+
     today.setHours(0, 0, 0, 0);
     clickedDate.setHours(0, 0, 0, 0);
 
@@ -136,7 +134,6 @@ function Availability() {
     });
   };
 
-  // Fetch yacht details and open modal
   const handleYachtClick = async (yacht) => {
     setSelectedYacht(yacht);
     setLoadingDetails(true);
@@ -151,18 +148,13 @@ function Availability() {
         yachtPhotos:
           details?.yachtPhotos?.length > 0
             ? details.yachtPhotos
-            : yacht.yachtPhotos?.length > 0
-            ? yacht.yachtPhotos
-            : ["/default-yacht.jpg"],
+            : yacht.yachtPhotos || ["/default-yacht.jpg"],
         currentImageIndex: 0,
       });
-    } catch (error) {
-      console.error("Error fetching detailed yacht info:", error);
-      // fallback to passed yacht
+    } catch {
       setDetailedYacht({
         ...yacht,
-        yachtPhotos:
-          yacht.yachtPhotos?.length > 0 ? yacht.yachtPhotos : ["/default-yacht.jpg"],
+        yachtPhotos: yacht.yachtPhotos || ["/default-yacht.jpg"],
         currentImageIndex: 0,
       });
     } finally {
@@ -175,63 +167,75 @@ function Availability() {
     setDetailedYacht(null);
   };
 
-  // Filtering logic (client-side). case-insensitive comparison for robustness.
-  const filteredAvailability = availability.filter((yacht) => {
-    // Status Filter (default = Active)
-    if (filterStatus && filterStatus.toLowerCase() !== "all") {
-      if (!yacht.status) return false;
-      if (yacht.status.toLowerCase() !== filterStatus.toLowerCase()) return false;
-    }
+  // Relevance sorting with dropdown ranges
+  const rankedAvailability = availability
+    .map((yacht) => {
+      let score = 0;
 
-    // Capacity filter
-    if (filterCapacity === "small" && yacht.capacity > 5) return false;
-    if (
-      filterCapacity === "medium" &&
-      (yacht.capacity < 6 || yacht.capacity > 10)
-    )
-      return false;
-    if (
-      filterCapacity === "large" &&
-      (yacht.capacity < 11 || yacht.capacity > 20)
-    )
-      return false;
-    if (filterCapacity === "xlarge" && yacht.capacity <= 20) return false;
+      // Status match
+      if (filterStatus && filterStatus !== "all") {
+        if (yacht.status?.toLowerCase() === filterStatus.toLowerCase()) {
+          score += 3;
+        }
+      }
 
-    // Budget filter
-    if (filterBudget === "low" && yacht.sellingPrice >= 5000) return false;
-    if (
-      filterBudget === "mid" &&
-      (yacht.sellingPrice < 5000 || yacht.sellingPrice > 10000)
-    )
-      return false;
-    if (
-      filterBudget === "high" &&
-      (yacht.sellingPrice < 10000 || yacht.sellingPrice > 20000)
-    )
-      return false;
-    if (filterBudget === "premium" && yacht.sellingPrice <= 20000) return false;
+      // Capacity relevance
+      if (filterCapacity) {
+        const [min, max] =
+          filterCapacity === "small"
+            ? [1, 5]
+            : filterCapacity === "medium"
+            ? [6, 10]
+            : filterCapacity === "large"
+            ? [11, 20]
+            : filterCapacity === "xlarge"
+            ? [21, Infinity]
+            : [0, Infinity];
 
-    // Date filter: ensure that the yacht has the selected date in its days
-    if (filterDate) {
-      return yacht.days && yacht.days.some((d) => d.date === filterDate);
-    }
+        if (yacht.capacity >= min && yacht.capacity <= max) score += 4;
+        else score += 2 - Math.min(Math.abs(yacht.capacity - min), Math.abs(yacht.capacity - max)) / 5;
+      }
 
-    return true;
-  });
+      // Budget relevance
+      if (filterBudget) {
+        const [min, max] =
+          filterBudget === "low"
+            ? [0, 4999]
+            : filterBudget === "mid"
+            ? [5000, 10000]
+            : filterBudget === "high"
+            ? [10001, 20000]
+            : filterBudget === "premium"
+            ? [20001, Infinity]
+            : [0, Infinity];
+
+        if (yacht.sellingPrice >= min && yacht.sellingPrice <= max) score += 4;
+        else score +=
+          2 - Math.min(Math.abs(yacht.sellingPrice - min), Math.abs(yacht.sellingPrice - max)) / 5000;
+      }
+
+      // Date match
+      if (filterDate) {
+        if (yacht.days?.some((d) => d.date === filterDate)) {
+          score += 5;
+        }
+      }
+
+      return { ...yacht, score };
+    })
+    .sort((a, b) => b.score - a.score);
 
   return (
     <div className="container mt-4">
       <h3 className="text-center mb-3">Yacht Availability</h3>
 
-      {/* Week Range */}
       <div className="text-center mb-3">
         <h6 className="mb-0 fw-semibold">{selectedWeek}</h6>
       </div>
 
-      {/* Filters */}
       <div className="d-flex flex-wrap justify-content-between align-items-end mb-4">
         <div className="d-flex flex-wrap gap-3">
-          {/* Capacity */}
+          {/* Capacity dropdown */}
           <div>
             <label className="form-label mb-1">Capacity</label>
             <select
@@ -248,7 +252,7 @@ function Availability() {
             </select>
           </div>
 
-          {/* Budget */}
+          {/* Budget dropdown */}
           <div>
             <label className="form-label mb-1">Budget</label>
             <select
@@ -265,7 +269,7 @@ function Availability() {
             </select>
           </div>
 
-          {/* Status (Active/Inactive) */}
+          {/* Status */}
           <div>
             <label className="form-label mb-1">Status</label>
             <select
@@ -281,7 +285,7 @@ function Availability() {
           </div>
         </div>
 
-        {/* Date + Clear */}
+        {/* Date & Clear */}
         <div className="d-flex flex-wrap align-items-end gap-3">
           <div>
             <label className="form-label mb-1">Date</label>
@@ -295,11 +299,9 @@ function Availability() {
             />
           </div>
 
-          <div className="d-flex gap-2">
-            <button className="btn btn-secondary" onClick={handleClear}>
-              Clear
-            </button>
-          </div>
+          <button className="btn btn-secondary" onClick={handleClear}>
+            Clear
+          </button>
         </div>
       </div>
 
@@ -308,12 +310,10 @@ function Availability() {
         <div className="text-center mt-5">
           <div className="spinner-border text-primary" role="status"></div>
         </div>
-      ) : filteredAvailability.length === 0 ? (
-        <div className="text-center text-muted mt-5">
-          No yachts match your filters
-        </div>
+      ) : availability.length === 0 ? (
+        <div className="text-center text-muted mt-5">No yachts found</div>
       ) : (
-        filteredAvailability.map((yacht, index) => (
+        rankedAvailability.map((yacht, index) => (
           <div key={yacht.yachtId || index} className="card shadow-sm mb-4">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-3">
@@ -326,8 +326,8 @@ function Availability() {
                     {yacht.name}
                   </h5>
                   <strong className="text-muted">
-                    Capacity: {yacht.capacity} | Selling Price : ₹
-                    {yacht.sellingPrice} | Status : {yacht.status?.charAt(0).toUpperCase() + yacht.status?.slice(1).toLowerCase()}
+                    Capacity: {yacht.capacity} | Selling Price : ₹{yacht.sellingPrice} | Status:{" "}
+                    {yacht.status}
                   </strong>
                 </div>
               </div>
@@ -404,10 +404,7 @@ function Availability() {
               <div className="modal-body text-center">
                 {loadingDetails ? (
                   <div className="text-center py-4">
-                    <div
-                      className="spinner-border text-primary"
-                      role="status"
-                    ></div>
+                    <div className="spinner-border text-primary" role="status"></div>
                     <p className="mt-2">Loading details...</p>
                   </div>
                 ) : (
@@ -415,9 +412,8 @@ function Availability() {
                     <div className="position-relative mb-3">
                       <img
                         src={
-                          detailedYacht.yachtPhotos[
-                            detailedYacht.currentImageIndex
-                          ] || "/default-yacht.jpg"
+                          detailedYacht.yachtPhotos[detailedYacht.currentImageIndex] ||
+                          "/default-yacht.jpg"
                         }
                         alt="Yacht"
                         className="d-block mx-auto rounded"
@@ -428,6 +424,7 @@ function Availability() {
                           objectFit: "cover",
                         }}
                       />
+
                       {detailedYacht.yachtPhotos.length > 1 && (
                         <>
                           <button
@@ -437,15 +434,14 @@ function Availability() {
                               setDetailedYacht((prev) => ({
                                 ...prev,
                                 currentImageIndex:
-                                  (prev.currentImageIndex -
-                                    1 +
-                                    prev.yachtPhotos.length) %
+                                  (prev.currentImageIndex - 1 + prev.yachtPhotos.length) %
                                   prev.yachtPhotos.length,
                               }))
                             }
                           >
                             ‹
                           </button>
+
                           <button
                             className="btn btn-dark btn-sm position-absolute top-50 end-0 translate-middle-y"
                             style={{ opacity: 0.7 }}
@@ -453,8 +449,7 @@ function Availability() {
                               setDetailedYacht((prev) => ({
                                 ...prev,
                                 currentImageIndex:
-                                  (prev.currentImageIndex + 1) %
-                                  prev.yachtPhotos.length,
+                                  (prev.currentImageIndex + 1) % prev.yachtPhotos.length,
                               }))
                             }
                           >
@@ -471,11 +466,11 @@ function Availability() {
                       <tbody>
                         <tr>
                           <th>Capacity</th>
-                          <td>{detailedYacht.capacity || "—"}</td>
+                          <td>{detailedYacht.capacity}</td>
                         </tr>
                         <tr>
                           <th>Price</th>
-                          <td>₹{detailedYacht.sellingPrice || "—"}</td>
+                          <td>₹{detailedYacht.sellingPrice}</td>
                         </tr>
                         <tr>
                           <th>Status</th>

@@ -44,7 +44,7 @@ function AdminDashboard({ user }) {
               <div className="card-body text-center">
                 <h5 className="card-title">View Bookings</h5>
                 <p className="card-text">
-                  Check all current bookings and manage their status.
+                  Check all current bookings and manage .
                 </p>
                 <button
                   className="btn btn-success"
@@ -60,13 +60,13 @@ function AdminDashboard({ user }) {
           <div className="col-12 col-md-4">
             <div className="card h-100 shadow-sm border-warning">
               <div className="card-body text-center">
-                <h5 className="card-title">Track Collections</h5>
+                <h5 className="card-title">Yacht Management</h5>
                 <p className="card-text">
-                  Monitor collected payments and pending amounts.
+                  Monitor and manage your Yacht's
                 </p>
                 <button
                   className="btn btn-warning text-dark"
-                  onClick={() => handleNavigate("/collections")}
+                  onClick={() => handleNavigate("/all-yachts")}
                 >
                   Go
                 </button>

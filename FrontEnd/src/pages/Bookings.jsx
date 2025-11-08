@@ -1,16 +1,36 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getBookingsAPI } from "../services/operations/bookingAPI";
 
 function Bookings({ user }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ read URL params
+  const params = new URLSearchParams(location.search);
+
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // filters
-  const [filterDate, setFilterDate] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  // ✅ Filters initialized from URL (or defaults)
+  const [filterDate, setFilterDate] = useState(
+    params.get("date") || new Date().toISOString().split("T")[0]
+  );
 
+  const [filterStatus, setFilterStatus] = useState(
+    params.get("status") || ""
+  );
+
+  // ✅ Sync filters → URL whenever they change
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (filterDate) p.set("date", filterDate);
+    if (filterStatus) p.set("status", filterStatus);
+
+    navigate({ search: p.toString() }, { replace: true });
+  }, [filterDate, filterStatus]);
+
+  // ✅ Fetch bookings
   const fetchBookings = async (filters = {}) => {
     try {
       setLoading(true);
@@ -24,17 +44,8 @@ function Bookings({ user }) {
     }
   };
 
-  // ✅ Load today's bookings on mount
+  // ✅ Whenever filters change → fetch bookings
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    setFilterDate(today);
-    fetchBookings({ date: today });
-  }, []);
-
-  // ✅ Auto-fetch whenever date or status changes
-  useEffect(() => {
-    if (!filterDate && !filterStatus) return;
-
     const filters = {};
     if (filterDate) filters.date = filterDate;
     if (filterStatus) filters.status = filterStatus;
@@ -42,18 +53,18 @@ function Bookings({ user }) {
     fetchBookings(filters);
   }, [filterDate, filterStatus]);
 
-  // ✅ Clear and auto-fetch
+  // ✅ Clear filters
   const handleClear = () => {
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);
     setFilterStatus("");
-    // Auto-fetch triggers automatically from useEffect
   };
 
   const handleViewDetails = (booking) =>
     navigate("/customer-details", { state: { booking } });
 
   const handleCreateBooking = () => navigate("/create-booking");
+
   const handleUpdateBooking = (booking) =>
     navigate("/update-booking", { state: { booking } });
 

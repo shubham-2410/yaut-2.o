@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
+import {jwtDecode} from "jwt-decode";
 import axios from "axios";
 
 import Navbar from "./components/Navbar";
@@ -22,7 +22,6 @@ import DayAvailability from "./pages/DayAvailability";
 import CreateYacht from "./pages/CreateYacht";
 import AllYachts from "./pages/AllYachts";
 import AllEmployees from "./pages/AllEmployees";
-import { Home } from "./pages/Home";
 
 function App() {
   const storedUser = localStorage.getItem("user");
@@ -70,7 +69,6 @@ function App() {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        console.log("Decoded token is ", decoded);
         if (Date.now() >= decoded.exp * 1000) {
           logoutUser();
         } else {
@@ -102,13 +100,21 @@ function App() {
       {user && <Navbar user={user} onLogout={logoutUser} />}
 
       <Routes>
-        {/* Public Route */}
+        {/* Root Route → Redirect based on user role */}
         <Route
           path="/"
-          element={user ? <Navigate to="/home" /> : <Login onLogin={handleLogin} />}
+          element={
+            user ? (
+              role === "admin" ? (
+                <Navigate to="/admin" />
+              ) : (
+                <Navigate to="/bookings" />
+              )
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          }
         />
-
-        <Route path="/home" element={<Home />} />
 
         {/* Protected Routes */}
         <Route
@@ -116,53 +122,6 @@ function App() {
           element={
             <ProtectedRoute user={user}>
               {role === "admin" ? <AdminDashboard /> : <NotFound />}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/customer-details"
-          element={
-            <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role)
-                ? <CustomerDetails />
-                : <NotFound />}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/create-yacht"
-          element={
-            <ProtectedRoute user={user}>
-              {role === "admin" ? <CreateYacht /> : <NotFound />}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/all-yachts"
-          element={
-            <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? <AllYachts /> : <NotFound />}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/all-employees"
-          element={
-            <ProtectedRoute user={user}>
-              {["admin", "backdesk"].includes(role) ? <AllEmployees /> : <NotFound />}
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/create-employee"
-          element={
-            <ProtectedRoute user={user}>
-              {role === "admin" ? <CreateEmployee /> : <NotFound />}
             </ProtectedRoute>
           }
         />
@@ -213,6 +172,51 @@ function App() {
         />
 
         <Route
+          path="/customer-details"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk", "onsite"].includes(role) ? <CustomerDetails /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/create-employee"
+          element={
+            <ProtectedRoute user={user}>
+              {role === "admin" ? <CreateEmployee /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/create-yacht"
+          element={
+            <ProtectedRoute user={user}>
+              {role === "admin" ? <CreateYacht /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/all-yachts"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? <AllYachts /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/all-employees"
+          element={
+            <ProtectedRoute user={user}>
+              {["admin", "backdesk"].includes(role) ? <AllEmployees /> : <NotFound />}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/create-booking"
           element={
             <ProtectedRoute user={user}>
@@ -225,9 +229,7 @@ function App() {
           path="/update-booking"
           element={
             <ProtectedRoute user={user}>
-              {["admin", "backdesk", "onsite"].includes(role)
-                ? <UpdateBooking />
-                : <NotFound />}
+              {["admin", "backdesk", "onsite"].includes(role) ? <UpdateBooking /> : <NotFound />}
             </ProtectedRoute>
           }
         />
