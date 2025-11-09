@@ -14,7 +14,32 @@ const AllYachts = () => {
 
   const navigate = useNavigate();
 
+  // ✅ Convert ANY FORMAT to minutes for UI display
+  const toMinutes = (value) => {
+    if (!value) return 0;
+
+    if (!isNaN(value)) return Number(value); // already minutes
+
+    const str = value.toString().trim();
+
+    if (str.includes(":")) {
+      const [h, m] = str.split(":").map(Number);
+      return h * 60 + (m || 0);
+    }
+
+    return Number(str);
+  };
+
+  // ✅ Convert minutes to backend HH:MM format
+  const minutesToHHMM = (minutes) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  // ------------------------------------------------------------------
   // 🧾 Fetch yachts
+  // ------------------------------------------------------------------
   useEffect(() => {
     const fetchYachts = async () => {
       try {
@@ -34,11 +59,10 @@ const AllYachts = () => {
             y.yachtPhotos && y.yachtPhotos.length > 0
               ? y.yachtPhotos
               : y.photos && y.photos.length > 0
-                ? y.photos
-                : ["/default-yacht.jpg"],
+              ? y.photos
+              : ["/default-yacht.jpg"],
         }));
 
-        console.log("Here are yauts - ", yachtsWithImages)
         setYachts(yachtsWithImages);
       } catch (err) {
         console.error("❌ Error fetching yachts:", err);
@@ -51,24 +75,16 @@ const AllYachts = () => {
     fetchYachts();
   }, []);
 
-  // 🚦 Toggle status directly in table
-  // const toggleStatus = (id) => {
-  //   setYachts((prev) =>
-  //     prev.map((y) =>
-  //       y._id === id
-  //         ? { ...y, status: y.status === "active" ? "inactive" : "active" }
-  //         : y
-  //     )
-  //   );
-  // };
-
+  // ------------------------------------------------------------------
   // 🚮 Delete yacht handler
+  // ------------------------------------------------------------------
   const handleDelete = async () => {
     if (!selectedYacht) return;
     try {
       setLoading(true);
       const token = localStorage.getItem("authToken");
-      const response = await deleteYacht(selectedYacht._id, token);
+      await deleteYacht(selectedYacht._id, token);
+
       setYachts((prev) => prev.filter((y) => y._id !== selectedYacht._id));
       alert("Yacht deleted successfully!");
     } catch (err) {
@@ -80,7 +96,9 @@ const AllYachts = () => {
     }
   };
 
-  // ✏️ Handle edit form save
+  // ------------------------------------------------------------------
+  // ✏️ Handle edit save (duration goes to backend as HH:MM)
+  // ------------------------------------------------------------------
   const handleEditSave = async () => {
     if (!selectedYacht) return;
 
@@ -88,17 +106,30 @@ const AllYachts = () => {
       alert("Please fill in required fields (Name, Running Cost)");
       return;
     }
-    
+
     try {
       const token = localStorage.getItem("authToken");
-      const response = await updateYacht(selectedYacht._id, selectedYacht, token)
+
+      const durationMinutes = Number(selectedYacht.duration);
+      const durationHHMM = minutesToHHMM(durationMinutes);
+
+      const yachtToSave = {
+        ...selectedYacht,
+        duration: durationHHMM, // ✅ send HH:MM to backend
+      };
+
+      await updateYacht(selectedYacht._id, yachtToSave, token);
+
       setYachts((prev) =>
-        prev.map((y) => (y._id === selectedYacht._id ? selectedYacht : y))
+        prev.map((y) =>
+          y._id === selectedYacht._id ? { ...y, ...yachtToSave } : y
+        )
       );
+
       alert("Yacht details updated!");
     } catch (err) {
-      console.error("❌ Error Updating yachts:", err);
-      setError(err?.response?.data?.message || "Failed to Update yacht");
+      console.error("❌ Error updating yacht:", err);
+      setError(err?.response?.data?.message || "Failed to update yacht");
     } finally {
       setLoading(false);
       setShowEditModal(false);
@@ -126,20 +157,18 @@ const AllYachts = () => {
       </div>
     );
 
+  // ------------------------------------------------------------------
+  // ✅ MAIN RETURN UI
+  // ------------------------------------------------------------------
   return (
     <div className="container my-4 px-2">
-      {/* Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
         <h2 className="fw-bold mb-2 mb-md-0">Available Yachts</h2>
-        <button
-          className="btn btn-primary"
-          onClick={() => navigate("/create-yacht")}
-        >
+        <button className="btn btn-primary" onClick={() => navigate("/create-yacht")}>
           + Create Yacht
         </button>
       </div>
 
-      {/* Yacht Table */}
       {Array.isArray(yachts) && yachts.length > 0 ? (
         <div className="table-responsive">
           <table className="table table-striped table-hover align-middle text-center">
@@ -164,14 +193,12 @@ const AllYachts = () => {
                   </td>
                   <td className="d-none d-sm-table-cell">
                     <span
-                      className={`badge ${yacht.status === "active"
-                          ? "bg-success"
-                          : "bg-secondary"
-                        }`}
-                      style={{ cursor: "pointer" }}
-                    // onClick={() => toggleStatus(yacht._id)}
+                      className={`badge ${
+                        yacht.status === "active" ? "bg-success" : "bg-secondary"
+                      }`}
                     >
-                      {yacht.status?.charAt(0).toUpperCase() + yacht.status?.slice(1).toLowerCase()}
+                      {yacht.status?.charAt(0).toUpperCase() +
+                        yacht.status?.slice(1).toLowerCase()}
                     </span>
                   </td>
                   <td>
@@ -188,7 +215,10 @@ const AllYachts = () => {
                       <button
                         className="btn btn-sm btn-warning"
                         onClick={() => {
-                          setSelectedYacht({ ...yacht });
+                          setSelectedYacht({
+                            ...yacht,
+                            duration: toMinutes(yacht.duration), // ✅ always minutes
+                          });
                           setShowEditModal(true);
                         }}
                       >
@@ -214,30 +244,23 @@ const AllYachts = () => {
         <div className="text-center text-muted mt-5">No yachts found.</div>
       )}
 
-      {/* === BACKDROP === */}
       {(showViewModal || showEditModal || showDeleteModal) && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={closeAllModals}
-        ></div>
+        <div className="modal-backdrop fade show" onClick={closeAllModals}></div>
       )}
 
-      {/* 🧭 View Modal */}
+      {/* ------------------------ VIEW MODAL ------------------------ */}
       {showViewModal && selectedYacht && (
         <div className="modal show fade d-block" tabIndex="-1">
           <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5 className="modal-title fw-bold">{selectedYacht.name}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeAllModals}
-                ></button>
+                <button type="button" className="btn-close" onClick={closeAllModals}></button>
               </div>
               <div className="modal-body">
                 <div className="row">
-                  {/* Yacht Details */}
+                  
+                  {/* DETAILS */}
                   <div className="col-12 col-lg-6">
                     <ul className="list-group list-group-flush">
                       <li className="list-group-item">
@@ -252,7 +275,8 @@ const AllYachts = () => {
                       </li>
                       <li className="list-group-item">
                         <strong>MaxSelling Price:</strong> ₹
-                        {selectedYacht?.maxSellingPrice?.toLocaleString() || selectedYacht?.price?.toLocaleString()}
+                        {selectedYacht?.maxSellingPrice?.toLocaleString() ||
+                          selectedYacht?.price?.toLocaleString()}
                       </li>
                       <li className="list-group-item">
                         <strong>Selling Price:</strong> ₹
@@ -270,21 +294,13 @@ const AllYachts = () => {
                     </ul>
                   </div>
 
-                  {/* Image Carousel */}
+                  {/* IMAGES */}
                   <div className="col-12 col-lg-6 mt-3 mt-lg-0">
-                    {selectedYacht.images && selectedYacht.images.length > 0 ? (
-                      <div
-                        id="yachtCarousel"
-                        className="carousel slide"
-                        data-bs-ride="carousel"
-                      >
+                    {selectedYacht.images?.length > 0 ? (
+                      <div id="yachtCarousel" className="carousel slide" data-bs-ride="carousel">
                         <div className="carousel-inner rounded shadow-sm">
                           {selectedYacht.images.map((img, idx) => (
-                            <div
-                              key={idx}
-                              className={`carousel-item ${idx === 0 ? "active" : ""
-                                }`}
-                            >
+                            <div key={idx} className={`carousel-item ${idx === 0 ? "active" : ""}`}>
                               <img
                                 src={img}
                                 className="d-block w-100 rounded"
@@ -296,27 +312,11 @@ const AllYachts = () => {
                         </div>
                         {selectedYacht.images.length > 1 && (
                           <>
-                            <button
-                              className="carousel-control-prev"
-                              type="button"
-                              data-bs-target="#yachtCarousel"
-                              data-bs-slide="prev"
-                            >
-                              <span
-                                className="carousel-control-prev-icon"
-                                aria-hidden="true"
-                              ></span>
+                            <button className="carousel-control-prev" type="button" data-bs-target="#yachtCarousel" data-bs-slide="prev">
+                              <span className="carousel-control-prev-icon" aria-hidden="true"></span>
                             </button>
-                            <button
-                              className="carousel-control-next"
-                              type="button"
-                              data-bs-target="#yachtCarousel"
-                              data-bs-slide="next"
-                            >
-                              <span
-                                className="carousel-control-next-icon"
-                                aria-hidden="true"
-                              ></span>
+                            <button className="carousel-control-next" type="button" data-bs-target="#yachtCarousel" data-bs-slide="next">
+                              <span className="carousel-control-next-icon" aria-hidden="true"></span>
                             </button>
                           </>
                         )}
@@ -325,6 +325,7 @@ const AllYachts = () => {
                       <p className="text-muted">No images available.</p>
                     )}
                   </div>
+
                 </div>
               </div>
             </div>
@@ -332,21 +333,18 @@ const AllYachts = () => {
         </div>
       )}
 
-      {/* ✏️ Edit Modal */}
+      {/* ------------------------ EDIT MODAL ------------------------ */}
       {showEditModal && selectedYacht && (
         <div className="modal show fade d-block" tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
             <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5 className="modal-title">Edit Yacht Details</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeAllModals}
-                ></button>
+                <button type="button" className="btn-close" onClick={closeAllModals}></button>
               </div>
               <div className="modal-body">
                 <div className="row g-3">
+                  
                   {[
                     "name",
                     "capacity",
@@ -361,30 +359,46 @@ const AllYachts = () => {
                       <label className="form-label text-capitalize">
                         {field.replace(/([A-Z])/g, " $1")}
                       </label>
-                      <input
-                        type={
-                          field === "name"
-                            ? "text"
-                            : field.toLowerCase().includes("time")
+
+                      {/* ✅ Duration always in MINUTES */}
+                      {field === "duration" ? (
+                        <input
+                          type="number"
+                          className="form-control"
+                          value={toMinutes(selectedYacht.duration)}
+                          onChange={(e) =>
+                            setSelectedYacht({
+                              ...selectedYacht,
+                              duration: Number(e.target.value),
+                            })
+                          }
+                        />
+                      ) : (
+                        <input
+                          type={
+                            field === "name"
+                              ? "text"
+                              : field.toLowerCase().includes("time")
                               ? "time"
                               : "number"
-                        }
-                        className="form-control"
-                        value={selectedYacht[field] || ""}
-                        onChange={(e) =>
-                          setSelectedYacht({
-                            ...selectedYacht,
-                            [field]:
-                              field === "capacity"
-                                ? Number(e.target.value)
-                                : e.target.value,
-                          })
-                        }
-                      />
+                          }
+                          className="form-control"
+                          value={selectedYacht[field] || ""}
+                          onChange={(e) =>
+                            setSelectedYacht({
+                              ...selectedYacht,
+                              [field]:
+                                field === "capacity"
+                                  ? Number(e.target.value)
+                                  : e.target.value,
+                            })
+                          }
+                        />
+                      )}
                     </div>
                   ))}
 
-                  {/* Yacht Status Dropdown */}
+                  {/* Status */}
                   <div className="col-12 col-md-6">
                     <label className="form-label">Status</label>
                     <select
@@ -401,8 +415,10 @@ const AllYachts = () => {
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
+
                 </div>
               </div>
+
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closeAllModals}>
                   Cancel
@@ -416,18 +432,14 @@ const AllYachts = () => {
         </div>
       )}
 
-      {/* ❌ Delete Modal */}
+      {/* ------------------------ DELETE MODAL ------------------------ */}
       {showDeleteModal && selectedYacht && (
         <div className="modal show fade d-block" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content shadow">
               <div className="modal-header bg-danger text-white">
                 <h5 className="modal-title">Confirm Deletion</h5>
-                <button
-                  type="button"
-                  className="btn-close btn-close-white"
-                  onClick={closeAllModals}
-                ></button>
+                <button type="button" className="btn-close btn-close-white" onClick={closeAllModals}></button>
               </div>
               <div className="modal-body text-center">
                 <p>
@@ -447,6 +459,7 @@ const AllYachts = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

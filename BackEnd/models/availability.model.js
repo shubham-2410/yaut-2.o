@@ -20,7 +20,7 @@ const availabilitySchema = new mongoose.Schema(
     // 👇 Who locked or booked it
     appliedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Employee",
     },
 
     // ⏰ TTL field → set to actual trip end datetime

@@ -293,7 +293,7 @@ export const getAvailabilitySummary = async (req, res, next) => {
           bookedTime: dayInfo.bookedTime, // in hours
         });
       }
-      console.log("Inside availability " , yacht);
+      console.log("Inside availability ", yacht);
       return {
         yachtId: yacht._id,
         yachtName: yacht.name,
@@ -341,27 +341,43 @@ export const getDayAvailability = async (req, res, next) => {
       yachtId,
       date,
       status: { $in: ["initiated", "booked"] },
-    }).select("startTime endTime status");
+    }).select("startTime endTime status")
+      .populate({
+        path: "customerId",
+        select: "name",
+      })
+      .populate({
+        path: "employeeId",
+        select: "name",
+      });;;
 
     // ✅ Fetch locked slots from AvailabilityModel
     const lockedSlots = await AvailabilityModel.find({
       yachtId,
       date,
       status: "locked",
-    }).select("startTime endTime appliedBy");
+    }).select("startTime endTime appliedBy")
+      .populate({
+        path: "appliedBy",
+        select: "name",
+      });
 
+    // console.log("In back ", lockedSlots)
     // Format them nicely for frontend
     const bookedSlots = bookings.map((b) => ({
       start: b.startTime,
       end: b.endTime,
       status: b.status,
+      empName: b.employeeId.name,
+      custName: b.customerId.name
     }));
 
     const locked = lockedSlots.map((l) => ({
       start: l.startTime,
       end: l.endTime,
       status: "locked",
-      appliedBy: l.appliedBy,
+      appliedBy: l.appliedBy?._id,
+      empName: l.appliedBy?.name
     }));
 
     // ✅ Send combined availability info
