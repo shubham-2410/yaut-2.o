@@ -23,8 +23,9 @@ function CreateYacht() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [photoError, setPhotoError] = useState("");
 
-  // ✅ Price validation
+  // ✅ Price Validation
   useEffect(() => {
     const errors = {};
     const running = Number(yacht.runningCost);
@@ -32,7 +33,8 @@ function CreateYacht() {
     const sell = Number(yacht.sellingPrice);
 
     if (running && maxSell && maxSell <= running) {
-      errors.maxSellingPrice = "Max selling price must be greater than running cost";
+      errors.maxSellingPrice =
+        "Max selling price must be greater than running cost";
     }
 
     if (running && sell && sell < running) {
@@ -51,11 +53,25 @@ function CreateYacht() {
     setYacht((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ Photo Upload Validation
   const handlePhotoUpload = (e) => {
-    setYacht((prev) => ({
-      ...prev,
-      photos: Array.from(e.target.files),
-    }));
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) {
+      setYacht((prev) => ({ ...prev, photos: [] }));
+      setPhotoError("");
+      return;
+    }
+
+    for (const file of files) {
+      if (file.size > 50 * 1024) {
+        setPhotoError("Each photo must be less than 50 KB.");
+        return;
+      }
+    }
+
+    setPhotoError("");
+    setYacht((prev) => ({ ...prev, photos: files }));
   };
 
   const convertMinutesToHHMM = (mins) => {
@@ -68,9 +84,14 @@ function CreateYacht() {
     if (!timeStr || timeStr === "none") return null;
     const [time, modifier] = timeStr.split(" ");
     let [hours, minutes] = time.split(":").map(Number);
+
     if (modifier === "PM" && hours < 12) hours += 12;
     if (modifier === "AM" && hours === 12) hours = 0;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0"
+    )}`;
   };
 
   const validateDuration = () => {
@@ -91,6 +112,11 @@ function CreateYacht() {
 
     if (Object.keys(fieldErrors).length > 0) {
       setError("Fix all validation errors first.");
+      return;
+    }
+
+    if (photoError) {
+      setError("Please fix photo upload error first.");
       return;
     }
 
@@ -125,207 +151,268 @@ function CreateYacht() {
   };
 
   return (
-    <div className="container my-4">
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4>Create Yacht</h4>
-        <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
-      </div>
-
-      {error && <div className="text-danger mb-2">{error}</div>}
-
-      <form className="row g-3" onSubmit={handleSubmit}>
-        {/* Name */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Yacht Name</label>
-          <input
-            type="text"
-            className="form-control border border-dark"
-            name="name"
-            value={yacht.name}
-            onChange={handleChange}
-            required
-          />
+    <>
+      {/* ✅ Full-screen loader overlay */}
+      {loading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            className="spinner-border text-light"
+            role="status"
+            style={{ width: "4rem", height: "4rem" }}
+          ></div>
         </div>
+      )}
 
-        {/* Capacity */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Capacity</label>
-          <input
-            type="number"
-            className="form-control border border-dark"
-            name="capacity"
-            value={yacht.capacity}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        {/* Running Cost */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Running Cost</label>
-          <input
-            type="number"
-            name="runningCost"
-            className={`form-control border border-dark ${
-              fieldErrors.runningCost ? "is-invalid" : ""
-            }`}
-            value={yacht.runningCost}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        {/* Max Selling Price */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Max Selling Price</label>
-          <input
-            type="number"
-            name="maxSellingPrice"
-            className={`form-control border border-dark ${
-              fieldErrors.maxSellingPrice ? "is-invalid" : ""
-            }`}
-            value={yacht.maxSellingPrice}
-            onChange={handleChange}
-            required
-          />
-          {fieldErrors.maxSellingPrice && (
-            <div className="text-danger small">{fieldErrors.maxSellingPrice}</div>
-          )}
-        </div>
-
-        {/* Selling Price */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Selling Price</label>
-          <input
-            type="number"
-            name="sellingPrice"
-            className={`form-control border border-dark ${
-              fieldErrors.sellingPrice ? "is-invalid" : ""
-            }`}
-            value={yacht.sellingPrice}
-            onChange={handleChange}
-            required
-          />
-          {fieldErrors.sellingPrice && (
-            <div className="text-danger small">{fieldErrors.sellingPrice}</div>
-          )}
-        </div>
-
-        {/* Sail Times */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Sail Start Time</label>
-          <input
-            type="time"
-            name="sailStartTime"
-            className="form-control border border-dark"
-            value={yacht.sailStartTime}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Sail End Time</label>
-          <input
-            type="time"
-            name="sailEndTime"
-            className="form-control border border-dark"
-            value={yacht.sailEndTime}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
-        {/* Duration */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Slot Duration</label>
-          <select
-            name="duration"
-            className="form-select border border-dark"
-            value={yacht.duration}
-            onChange={(e) => {
-              const val = e.target.value;
-              setYacht((prev) => ({
-                ...prev,
-                duration: val,
-                customDuration: val === "custom" ? prev.customDuration : "",
-              }));
-            }}
-          >
-            <option value="30">30 min</option>
-            <option value="60">60 min</option>
-            <option value="120">120 min</option>
-            <option value="custom">Custom</option>
-          </select>
-
-          {yacht.duration === "custom" && (
-            <input
-              type="number"
-              name="customDuration"
-              className="form-control mt-2 border border-dark"
-              placeholder="Enter minutes"
-              value={yacht.customDuration}
-              onChange={handleChange}
-            />
-          )}
-        </div>
-
-        {/* Special Slot */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Special Slot Time</label>
-          <select
-            name="specialSlotTime"
-            className="form-select border border-dark"
-            value={yacht.specialSlotTime || "none"}
-            onChange={handleChange}
-          >
-            <option value="none">None</option>
-            <option value="4:00 PM">4:00 - 6:00 PM</option>
-            <option value="5:30 PM">5:30 - 7:30 PM</option>
-            <option value="6:00 PM">6:00 - 8:00 PM</option>
-          </select>
-        </div>
-
-        {/* Status */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Status</label>
-          <select
-            className="form-select border border-dark"
-            name="status"
-            value={yacht.status}
-            onChange={handleChange}
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-
-        {/* Photos */}
-        <div className="col-md-6">
-          <label className="form-label fw-bold">Upload Photos</label>
-          <input
-            type="file"
-            className="form-control border border-dark"
-            multiple
-            onChange={handlePhotoUpload}
-          />
-        </div>
-
-        {/* Submit */}
-        <div className="col-12">
-          <button
-            type="submit"
-            className="btn btn-primary w-100"
-            disabled={loading}
-          >
-            {loading ? "Creating..." : "Create Yacht"}
+      <div className="container my-4">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h4>Create Yacht</h4>
+          <button className="btn btn-secondary" onClick={() => navigate(-1)}>
+            ← Back
           </button>
         </div>
-      </form>
-    </div>
+
+        {error && <div className="text-danger mb-2">{error}</div>}
+
+        <form className="row g-3" onSubmit={handleSubmit}>
+          {/* Name */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Yacht Name <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              className="form-control border border-dark"
+              name="name"
+              value={yacht.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Capacity */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Capacity <span className="text-danger">*</span>
+            </label>
+            <input
+              type="number"
+              className="form-control border border-dark"
+              name="capacity"
+              value={yacht.capacity}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Running Cost */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Running Cost <span className="text-danger">*</span>
+            </label>
+            <input
+              type="number"
+              name="runningCost"
+              className={`form-control border border-dark ${
+                fieldErrors.runningCost ? "is-invalid" : ""
+              }`}
+              value={yacht.runningCost}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Max Selling Price */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Max Selling Price <span className="text-danger">*</span>
+            </label>
+            <input
+              type="number"
+              name="maxSellingPrice"
+              className={`form-control border border-dark ${
+                fieldErrors.maxSellingPrice ? "is-invalid" : ""
+              }`}
+              value={yacht.maxSellingPrice}
+              onChange={handleChange}
+              required
+            />
+            {fieldErrors.maxSellingPrice && (
+              <div className="text-danger small">
+                {fieldErrors.maxSellingPrice}
+              </div>
+            )}
+          </div>
+
+          {/* Selling Price */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Selling Price <span className="text-danger">*</span>
+            </label>
+            <input
+              type="number"
+              name="sellingPrice"
+              className={`form-control border border-dark ${
+                fieldErrors.sellingPrice ? "is-invalid" : ""
+              }`}
+              value={yacht.sellingPrice}
+              onChange={handleChange}
+              required
+            />
+            {fieldErrors.sellingPrice && (
+              <div className="text-danger small">
+                {fieldErrors.sellingPrice}
+              </div>
+            )}
+          </div>
+
+          {/* Sail Start */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Sail Start Time <span className="text-danger">*</span>
+            </label>
+            <input
+              type="time"
+              name="sailStartTime"
+              className="form-control border border-dark"
+              value={yacht.sailStartTime}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Sail End */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Sail End Time <span className="text-danger">*</span>
+            </label>
+            <input
+              type="time"
+              name="sailEndTime"
+              className="form-control border border-dark"
+              value={yacht.sailEndTime}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {/* Duration */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Slot Duration <span className="text-danger">*</span>
+            </label>
+            <select
+              name="duration"
+              className="form-select border border-dark"
+              value={yacht.duration}
+              onChange={(e) => {
+                const val = e.target.value;
+                setYacht((prev) => ({
+                  ...prev,
+                  duration: val,
+                  customDuration: val === "custom" ? prev.customDuration : "",
+                }));
+              }}
+            >
+              <option value="30">30 min</option>
+              <option value="60">60 min</option>
+              <option value="120">120 min</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            {yacht.duration === "custom" && (
+              <input
+                type="number"
+                name="customDuration"
+                className="form-control mt-2 border border-dark"
+                placeholder="Enter minutes"
+                value={yacht.customDuration}
+                onChange={handleChange}
+              />
+            )}
+          </div>
+
+          {/* Special Slot */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">Special Slot Time</label>
+            <select
+              name="specialSlotTime"
+              className="form-select border border-dark"
+              value={yacht.specialSlotTime || "none"}
+              onChange={handleChange}
+            >
+              <option value="none">None</option>
+              <option value="4:00 PM">4:00 - 6:00 PM</option>
+              <option value="5:30 PM">5:30 - 7:30 PM</option>
+              <option value="6:00 PM">6:00 - 8:00 PM</option>
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Status <span className="text-danger">*</span>
+            </label>
+            <select
+              className="form-select border border-dark"
+              name="status"
+              value={yacht.status}
+              onChange={handleChange}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {/* Photos */}
+          <div className="col-md-6">
+            <label className="form-label fw-bold">
+              Upload Photos (optional)
+            </label>
+
+            <input
+              type="file"
+              className={`form-control border border-dark ${
+                photoError ? "is-invalid" : ""
+              }`}
+              multiple
+              accept="image/*"
+              onChange={handlePhotoUpload}
+            />
+
+            {photoError && (
+              <div className="text-danger small mt-1">{photoError}</div>
+            )}
+
+            <div className="form-text">Max size: 50 KB per image</div>
+          </div>
+
+          {/* Submit */}
+          <div className="col-12">
+            <button
+              type="submit"
+              className="btn btn-primary w-100"
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Create Yacht"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 }
 

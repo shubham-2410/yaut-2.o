@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteYacht, getAllYachtsDetailsAPI, updateYacht } from "../services/operations/yautAPI";
+import {
+  deleteYacht,
+  getAllYachtsDetailsAPI,
+  updateYacht,
+} from "../services/operations/yautAPI";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 const AllYachts = () => {
@@ -102,8 +106,23 @@ const AllYachts = () => {
   const handleEditSave = async () => {
     if (!selectedYacht) return;
 
-    if (!selectedYacht.name || !selectedYacht.runningCost) {
-      alert("Please fill in required fields (Name, Running Cost)");
+    const { runningCost, sellingPrice, maxSellingPrice, name } = selectedYacht;
+
+    // ✅ Required field checks
+    if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
+      alert("Please fill all required fields.");
+      return;
+    }
+
+    // ✅ Validation 1 — Selling Price > Running Cost
+    if (Number(sellingPrice) <= Number(runningCost)) {
+      alert("Selling Price must be greater than Running Cost.");
+      return;
+    }
+
+    // ✅ Validation 2 — Max Selling Price > Selling Price
+    if (Number(maxSellingPrice) <= Number(sellingPrice)) {
+      alert("Max Selling Price must be greater than Selling Price.");
       return;
     }
 
@@ -115,7 +134,7 @@ const AllYachts = () => {
 
       const yachtToSave = {
         ...selectedYacht,
-        duration: durationHHMM, // ✅ send HH:MM to backend
+        duration: durationHHMM,
       };
 
       await updateYacht(selectedYacht._id, yachtToSave, token);
@@ -164,7 +183,10 @@ const AllYachts = () => {
     <div className="container my-4 px-2">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
         <h2 className="fw-bold mb-2 mb-md-0">Available Yachts</h2>
-        <button className="btn btn-primary" onClick={() => navigate("/create-yacht")}>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigate("/create-yacht")}
+        >
           + Create Yacht
         </button>
       </div>
@@ -194,7 +216,9 @@ const AllYachts = () => {
                   <td className="d-none d-sm-table-cell">
                     <span
                       className={`badge ${
-                        yacht.status === "active" ? "bg-success" : "bg-secondary"
+                        yacht.status === "active"
+                          ? "bg-success"
+                          : "bg-secondary"
                       }`}
                     >
                       {yacht.status?.charAt(0).toUpperCase() +
@@ -245,7 +269,10 @@ const AllYachts = () => {
       )}
 
       {(showViewModal || showEditModal || showDeleteModal) && (
-        <div className="modal-backdrop fade show" onClick={closeAllModals}></div>
+        <div
+          className="modal-backdrop fade show"
+          onClick={closeAllModals}
+        ></div>
       )}
 
       {/* ------------------------ VIEW MODAL ------------------------ */}
@@ -255,11 +282,14 @@ const AllYachts = () => {
             <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5 className="modal-title fw-bold">{selectedYacht.name}</h5>
-                <button type="button" className="btn-close" onClick={closeAllModals}></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={closeAllModals}
+                ></button>
               </div>
               <div className="modal-body">
                 <div className="row">
-                  
                   {/* DETAILS */}
                   <div className="col-12 col-lg-6">
                     <ul className="list-group list-group-flush">
@@ -283,7 +313,8 @@ const AllYachts = () => {
                         {selectedYacht.sellingPrice?.toLocaleString()}
                       </li>
                       <li className="list-group-item">
-                        <strong>Sail Start:</strong> {selectedYacht.sailStartTime}
+                        <strong>Sail Start:</strong>{" "}
+                        {selectedYacht.sailStartTime}
                       </li>
                       <li className="list-group-item">
                         <strong>Sail End:</strong> {selectedYacht.sailEndTime}
@@ -297,26 +328,54 @@ const AllYachts = () => {
                   {/* IMAGES */}
                   <div className="col-12 col-lg-6 mt-3 mt-lg-0">
                     {selectedYacht.images?.length > 0 ? (
-                      <div id="yachtCarousel" className="carousel slide" data-bs-ride="carousel">
+                      <div
+                        id="yachtCarousel"
+                        className="carousel slide"
+                        data-bs-ride="carousel"
+                      >
                         <div className="carousel-inner rounded shadow-sm">
                           {selectedYacht.images.map((img, idx) => (
-                            <div key={idx} className={`carousel-item ${idx === 0 ? "active" : ""}`}>
+                            <div
+                              key={idx}
+                              className={`carousel-item ${
+                                idx === 0 ? "active" : ""
+                              }`}
+                            >
                               <img
                                 src={img}
                                 className="d-block w-100 rounded"
                                 alt={`Yacht ${idx}`}
-                                style={{ maxHeight: "400px", objectFit: "cover" }}
+                                style={{
+                                  maxHeight: "400px",
+                                  objectFit: "cover",
+                                }}
                               />
                             </div>
                           ))}
                         </div>
                         {selectedYacht.images.length > 1 && (
                           <>
-                            <button className="carousel-control-prev" type="button" data-bs-target="#yachtCarousel" data-bs-slide="prev">
-                              <span className="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <button
+                              className="carousel-control-prev"
+                              type="button"
+                              data-bs-target="#yachtCarousel"
+                              data-bs-slide="prev"
+                            >
+                              <span
+                                className="carousel-control-prev-icon"
+                                aria-hidden="true"
+                              ></span>
                             </button>
-                            <button className="carousel-control-next" type="button" data-bs-target="#yachtCarousel" data-bs-slide="next">
-                              <span className="carousel-control-next-icon" aria-hidden="true"></span>
+                            <button
+                              className="carousel-control-next"
+                              type="button"
+                              data-bs-target="#yachtCarousel"
+                              data-bs-slide="next"
+                            >
+                              <span
+                                className="carousel-control-next-icon"
+                                aria-hidden="true"
+                              ></span>
                             </button>
                           </>
                         )}
@@ -325,7 +384,6 @@ const AllYachts = () => {
                       <p className="text-muted">No images available.</p>
                     )}
                   </div>
-
                 </div>
               </div>
             </div>
@@ -340,11 +398,14 @@ const AllYachts = () => {
             <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5 className="modal-title">Edit Yacht Details</h5>
-                <button type="button" className="btn-close" onClick={closeAllModals}></button>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={closeAllModals}
+                ></button>
               </div>
               <div className="modal-body">
                 <div className="row g-3">
-                  
                   {[
                     "name",
                     "capacity",
@@ -415,7 +476,6 @@ const AllYachts = () => {
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
-
                 </div>
               </div>
 
@@ -439,7 +499,11 @@ const AllYachts = () => {
             <div className="modal-content shadow">
               <div className="modal-header bg-danger text-white">
                 <h5 className="modal-title">Confirm Deletion</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={closeAllModals}></button>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={closeAllModals}
+                ></button>
               </div>
               <div className="modal-body text-center">
                 <p>
@@ -459,7 +523,6 @@ const AllYachts = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
