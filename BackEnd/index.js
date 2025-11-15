@@ -20,7 +20,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://yaut-2-o.vercel.app/"], 
+      "https://yaut-2-o.vercel.app"], 
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // 👈 allow cookies / authorization headers
