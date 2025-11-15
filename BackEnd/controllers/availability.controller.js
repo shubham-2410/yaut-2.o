@@ -234,7 +234,7 @@ export const getAvailabilitySummary = async (req, res, next) => {
     }
 
     // Fetch yachts
-    const yachts = await YachtModel.find({ company }).select(
+    const yachts = await YachtModel.find({ company, status: "active" }).select(
       "_id name capacity sellingPrice status"
     );
     if (!yachts.length) {

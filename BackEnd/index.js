@@ -14,12 +14,13 @@ import { globalErrorHandler } from "./middleware/errorHandler.js";
 
 dotenv.config();
 
+// "https://yaut-frontend-20.vercel.app"
 const app = express();
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://yaut-frontend-20.vercel.app"],
+      "https://yaut-2-o.vercel.app/"], 
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // 👈 allow cookies / authorization headers
