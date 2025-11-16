@@ -22,6 +22,7 @@ import DayAvailability from "./pages/DayAvailability";
 import CreateYacht from "./pages/CreateYacht";
 import AllYachts from "./pages/AllYachts";
 import AllEmployees from "./pages/AllEmployees";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const storedUser = localStorage.getItem("user");
@@ -97,6 +98,7 @@ function App() {
 
   return (
     <>
+      <Toaster position="top-right" reverseOrder={false} />
       {user && <Navbar user={user} onLogout={logoutUser} />}
 
       <Routes>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createYacht } from "../services/operations/yautAPI";
+import { toast } from "react-hot-toast";
 
 function CreateYacht() {
   const navigate = useNavigate();
@@ -64,11 +65,12 @@ function CreateYacht() {
     }
 
     for (const file of files) {
-      if (file.size > 50 * 1024) {
-        setPhotoError("Each photo must be less than 50 KB.");
+      if (file.size > 1 * 1024 * 1024) {   // 1 MB
+        setPhotoError("Each photo must be less than 1 MB.");
         return;
       }
     }
+
 
     setPhotoError("");
     setYacht((prev) => ({ ...prev, photos: files }));
@@ -141,7 +143,14 @@ function CreateYacht() {
       };
 
       await createYacht(payload, token);
-      alert("✅ Yacht created successfully!");
+      toast.success("✅ Yacht created successfully!", {
+        duration: 3000, // disappears after 3 seconds
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
       navigate("/all-yachts");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create yacht");
@@ -226,9 +235,8 @@ function CreateYacht() {
             <input
               type="number"
               name="runningCost"
-              className={`form-control border border-dark ${
-                fieldErrors.runningCost ? "is-invalid" : ""
-              }`}
+              className={`form-control border border-dark ${fieldErrors.runningCost ? "is-invalid" : ""
+                }`}
               value={yacht.runningCost}
               onChange={handleChange}
               required
@@ -243,9 +251,8 @@ function CreateYacht() {
             <input
               type="number"
               name="maxSellingPrice"
-              className={`form-control border border-dark ${
-                fieldErrors.maxSellingPrice ? "is-invalid" : ""
-              }`}
+              className={`form-control border border-dark ${fieldErrors.maxSellingPrice ? "is-invalid" : ""
+                }`}
               value={yacht.maxSellingPrice}
               onChange={handleChange}
               required
@@ -265,9 +272,8 @@ function CreateYacht() {
             <input
               type="number"
               name="sellingPrice"
-              className={`form-control border border-dark ${
-                fieldErrors.sellingPrice ? "is-invalid" : ""
-              }`}
+              className={`form-control border border-dark ${fieldErrors.sellingPrice ? "is-invalid" : ""
+                }`}
               value={yacht.sellingPrice}
               onChange={handleChange}
               required
@@ -385,9 +391,8 @@ function CreateYacht() {
 
             <input
               type="file"
-              className={`form-control border border-dark ${
-                photoError ? "is-invalid" : ""
-              }`}
+              className={`form-control border border-dark ${photoError ? "is-invalid" : ""
+                }`}
               multiple
               accept="image/*"
               onChange={handlePhotoUpload}
@@ -397,7 +402,7 @@ function CreateYacht() {
               <div className="text-danger small mt-1">{photoError}</div>
             )}
 
-            <div className="form-text">Max size: 50 KB per image</div>
+            <div className="form-text">Max size: 1 MB per image</div>
           </div>
 
           {/* Submit */}

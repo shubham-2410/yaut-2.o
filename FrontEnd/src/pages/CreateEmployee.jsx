@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { createEmployeeAPI } from "../services/operations/authAPI";
+import { toast } from "react-hot-toast";
 
 function CreateEmployee() {
   const [formData, setFormData] = useState({
@@ -50,7 +51,14 @@ function CreateEmployee() {
 
       const res = await createEmployeeAPI(payload, token);
       console.log("✅ Employee created:", res.data);
-      alert("✅ Employee created successfully!");
+      toast.success("✅ Employee created successfully!", {
+  duration: 3000, // disappears after 3 seconds
+  style: {
+    borderRadius: "10px",
+    background: "#333",
+    color: "#fff",
+  },
+});
 
       // Reset form
       setFormData({

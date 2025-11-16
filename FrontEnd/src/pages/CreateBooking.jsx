@@ -6,6 +6,7 @@ import {
   getCustomerByEmailAPI,
 } from "../services/operations/customerAPI";
 import { getAllYachtsAPI } from "../services/operations/yautAPI";
+import { toast } from "react-hot-toast";
 
 function CreateBooking() {
   const navigate = useNavigate();
@@ -32,10 +33,11 @@ function CreateBooking() {
   const [runningCost, setRunningCost] = useState(0);
 
   // Time helpers
-  const hhmmToMinutes = (time) => {
+  const hhmmToMinutes = (time = "00:00") => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
   };
+
   const minutesToHHMM = (mins) => {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
@@ -59,46 +61,88 @@ function CreateBooking() {
     fetchYachts();
   }, []);
 
-  // ✅ Slot generator
+  // ✅ Slot generator with special slot logic
   const buildSlotsForYacht = (yacht) => {
     if (
       !yacht ||
       !yacht.sailStartTime ||
       !yacht.sailEndTime ||
-      !yacht.slotDurationMinutes
+      !(yacht.slotDurationMinutes || yacht.duration)
     )
       return [];
 
+    const duration = yacht.slotDurationMinutes || yacht.duration;
     let durationMinutes = 0;
-    if (
-      typeof yacht.slotDurationMinutes === "string" &&
-      yacht.slotDurationMinutes.includes(":")
-    ) {
-      const [dh, dm] = yacht.slotDurationMinutes.split(":").map(Number);
-      durationMinutes = dh * 60 + dm;
+
+    if (typeof duration === "string" && duration.includes(":")) {
+      const [dh, dm] = duration.split(":").map(Number);
+      durationMinutes = (dh || 0) * 60 + (dm || 0);
     } else {
-      durationMinutes = Number(yacht.slotDurationMinutes) || 0;
+      durationMinutes = Number(duration) || 0;
     }
 
-    const startMin = hhmmToMinutes(yacht.sailStartTime);
-    const endMin = hhmmToMinutes(yacht.sailEndTime);
+    if (durationMinutes <= 0) return [];
 
-    const specialMin = yacht.specialSlot
-      ? hhmmToMinutes(yacht.specialSlot)
-      : null;
+    const dayStart = yacht.sailStartTime;
+    const dayEnd = yacht.sailEndTime;
+    const specialSlotTime = yacht.specialSlot || null;
+
+    const startMin = hhmmToMinutes(dayStart);
+    const endMin = hhmmToMinutes(dayEnd);
+
+    if (endMin <= startMin) return [];
+
+    const specialMin = specialSlotTime ? hhmmToMinutes(specialSlotTime) : null;
+    const specialIsValid =
+      specialMin && specialMin >= startMin && specialMin < endMin;
 
     const slots = [];
     let cursor = startMin;
 
     while (cursor < endMin) {
+      // handle special slot split
+      if (
+        specialIsValid &&
+        specialMin > cursor &&
+        specialMin < cursor + durationMinutes
+      ) {
+        if (specialMin > cursor) {
+          slots.push({
+            start: minutesToHHMM(cursor),
+            end: minutesToHHMM(specialMin),
+          });
+        }
+
+        const specialEnd = Math.min(specialMin + durationMinutes, endMin);
+        slots.push({
+          start: minutesToHHMM(specialMin),
+          end: minutesToHHMM(specialEnd),
+        });
+
+        cursor = specialEnd;
+        continue;
+      }
+
       const next = Math.min(cursor + durationMinutes, endMin);
       slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next) });
       cursor = next;
     }
 
-    return slots.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
+    // dedupe & sort
+    const seen = new Set();
+    const unique = slots.filter((s) => {
+      const key = `${s.start}-${s.end}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.sort(
+      (a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start)
+    );
   };
 
+  // ✅ Update startTimeOptions whenever yacht changes
   useEffect(() => {
     const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
     if (!selectedYacht) {
@@ -107,10 +151,10 @@ function CreateBooking() {
     }
 
     setRunningCost(selectedYacht.runningCost || 0);
-
     const slots = buildSlotsForYacht(selectedYacht);
     setStartTimeOptions(slots);
 
+    // auto-set endTime if startTime exists
     if (formData.startTime) {
       const match = slots.find((s) => s.start === formData.startTime);
       if (match) {
@@ -148,7 +192,7 @@ function CreateBooking() {
     runningCost &&
     parseFloat(formData.totalAmount) < runningCost;
 
-  // ✅ Handle Submit with Loader
+  // ✅ Handle Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -158,7 +202,6 @@ function CreateBooking() {
       const token = localStorage.getItem("authToken");
 
       const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
-
       if (!selectedYacht) {
         alert("Please select a yacht first.");
         setLoading(false);
@@ -174,7 +217,6 @@ function CreateBooking() {
       }
 
       const { data } = await getCustomerByEmailAPI(formData.email, token);
-
       let customerId = data.customer?._id;
 
       if (!data.customer) {
@@ -198,7 +240,10 @@ function CreateBooking() {
 
       await createBookingAPI(bookingPayload, token);
 
-      alert("✅ Booking created successfully!");
+      toast.success("✅ Booking created successfully!", {
+        duration: 3000,
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
       navigate("/bookings");
     } catch (err) {
       console.error("Booking failed:", err);
@@ -210,14 +255,13 @@ function CreateBooking() {
 
   return (
     <>
-      {/* ✅ FULL-SCREEN BLUR LOADER */}
+      {/* Loader */}
       {loading && (
         <div className="blur-loader-overlay">
           <div className="custom-spinner"></div>
         </div>
       )}
 
-      {/* ✅ Inject CSS */}
       <style>
         {`
         .blur-loader-overlay {
@@ -329,13 +373,15 @@ function CreateBooking() {
             </select>
           </div>
 
-          {/* Amount */}
+          {/* Total Amount */}
           <div className="col-md-4">
             <label className="form-label fw-bold">Total Amount</label>
             <input
               type="number"
               className={`form-control border text-dark ${
-                isAmountInvalid ? "border-danger is-invalid" : "border-dark"
+                isAmountInvalid
+                  ? "border-danger is-invalid"
+                  : "border-dark"
               }`}
               name="totalAmount"
               value={formData.totalAmount}
@@ -349,7 +395,7 @@ function CreateBooking() {
             )}
           </div>
 
-          {/* ✅ Date — Past dates disabled */}
+          {/* Date */}
           <div className="col-md-4">
             <label className="form-label fw-bold">Date of Ride</label>
             <input
@@ -394,7 +440,7 @@ function CreateBooking() {
             />
           </div>
 
-          {/* People */}
+          {/* Number of People */}
           <div className="col-md-4">
             <label className="form-label fw-bold">Number of People</label>
             <input

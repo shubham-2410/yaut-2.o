@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createCustomerAPI } from "../services/operations/customerAPI"; // import the API call
+import { toast } from "react-hot-toast";
 
 function CustomerForm() {
   const navigate = useNavigate();
@@ -48,9 +49,9 @@ function CustomerForm() {
       }
 
       const res = await createCustomerAPI(payload, token);
-      console.log("✅ Customer created:", res.data);
-      alert("✅ Customer profile created successfully!");
-
+      // console.log("✅ Customer created:", res.data);
+      // alert("✅ Customer profile created successfully!");
+      toast.success("Customer profile created successfully!");
       // Reset form
       setFormData({
         name: "",

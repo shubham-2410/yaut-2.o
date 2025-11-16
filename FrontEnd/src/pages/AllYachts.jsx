@@ -6,6 +6,7 @@ import {
   updateYacht,
 } from "../services/operations/yautAPI";
 import "bootstrap/dist/css/bootstrap.min.css";
+import { toast } from "react-hot-toast";
 
 const AllYachts = () => {
   const [yachts, setYachts] = useState([]);
@@ -63,8 +64,8 @@ const AllYachts = () => {
             y.yachtPhotos && y.yachtPhotos.length > 0
               ? y.yachtPhotos
               : y.photos && y.photos.length > 0
-              ? y.photos
-              : ["/default-yacht.jpg"],
+                ? y.photos
+                : ["/default-yacht.jpg"],
         }));
 
         setYachts(yachtsWithImages);
@@ -90,7 +91,16 @@ const AllYachts = () => {
       await deleteYacht(selectedYacht._id, token);
 
       setYachts((prev) => prev.filter((y) => y._id !== selectedYacht._id));
-      alert("Yacht deleted successfully!");
+      // alert("Yacht deleted successfully!");
+      toast.success("Yacht deleted successfully!", {
+        icon: "🛥️",
+        duration: 3000, // 3 seconds
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
     } catch (err) {
       console.error("❌ Error deleting yacht:", err);
       setError(err?.response?.data?.message || "Failed to delete yacht");
@@ -109,22 +119,49 @@ const AllYachts = () => {
     const { runningCost, sellingPrice, maxSellingPrice, name } = selectedYacht;
 
     // ✅ Required field checks
+    // if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
+    //   alert("Please fill all required fields.");
+    //   return;
+    // }
+
+    // // ✅ Validation 1 — Selling Price > Running Cost
+    // if (Number(sellingPrice) <= Number(runningCost)) {
+    //   alert("Selling Price must be greater than Running Cost.");
+    //   return;
+    // }
+
+    // // ✅ Validation 2 — Max Selling Price > Selling Price
+    // if (Number(maxSellingPrice) <= Number(sellingPrice)) {
+    //   alert("Max Selling Price must be greater than Selling Price.");
+    //   return;
+    // }
+    // Validation — required fields
     if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.", {
+        duration: 3000,
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
       return;
     }
 
-    // ✅ Validation 1 — Selling Price > Running Cost
+    // Validation 1 — Selling Price > Running Cost
     if (Number(sellingPrice) <= Number(runningCost)) {
-      alert("Selling Price must be greater than Running Cost.");
+      toast.error("Selling Price must be greater than Running Cost.", {
+        duration: 3000,
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
       return;
     }
 
-    // ✅ Validation 2 — Max Selling Price > Selling Price
+    // Validation 2 — Max Selling Price > Selling Price
     if (Number(maxSellingPrice) <= Number(sellingPrice)) {
-      alert("Max Selling Price must be greater than Selling Price.");
+      toast.error("Max Selling Price must be greater than Selling Price.", {
+        duration: 3000,
+        style: { borderRadius: "10px", background: "#333", color: "#fff" },
+      });
       return;
     }
+
 
     try {
       const token = localStorage.getItem("authToken");
@@ -145,7 +182,14 @@ const AllYachts = () => {
         )
       );
 
-      alert("Yacht details updated!");
+      toast.success("Yacht details updated!", {
+        duration: 3000, // duration in ms
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
     } catch (err) {
       console.error("❌ Error updating yacht:", err);
       setError(err?.response?.data?.message || "Failed to update yacht");
@@ -215,11 +259,10 @@ const AllYachts = () => {
                   </td>
                   <td className="d-none d-sm-table-cell">
                     <span
-                      className={`badge ${
-                        yacht.status === "active"
-                          ? "bg-success"
-                          : "bg-secondary"
-                      }`}
+                      className={`badge ${yacht.status === "active"
+                        ? "bg-success"
+                        : "bg-secondary"
+                        }`}
                     >
                       {yacht.status?.charAt(0).toUpperCase() +
                         yacht.status?.slice(1).toLowerCase()}
@@ -337,9 +380,8 @@ const AllYachts = () => {
                           {selectedYacht.images.map((img, idx) => (
                             <div
                               key={idx}
-                              className={`carousel-item ${
-                                idx === 0 ? "active" : ""
-                              }`}
+                              className={`carousel-item ${idx === 0 ? "active" : ""
+                                }`}
                             >
                               <img
                                 src={img}
@@ -440,8 +482,8 @@ const AllYachts = () => {
                             field === "name"
                               ? "text"
                               : field.toLowerCase().includes("time")
-                              ? "time"
-                              : "number"
+                                ? "time"
+                                : "number"
                           }
                           className="form-control"
                           value={selectedYacht[field] || ""}

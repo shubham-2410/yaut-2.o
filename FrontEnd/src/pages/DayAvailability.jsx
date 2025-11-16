@@ -5,6 +5,7 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./DayAvailability.css";
+import { toast } from "react-hot-toast";
 
 import {
   getDayAvailability,
@@ -16,7 +17,7 @@ import { getYachtById } from "../services/operations/yautAPI";
 function DayAvailability() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { yachtId, yachtName, day } = location.state || {};
+  let { yachtId, yachtName, day } = location.state || {};
 
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,10 +27,21 @@ function DayAvailability() {
 
   const token = localStorage.getItem("authToken");
 
+  // FIX: convert string → object so react-calendar stops crashing
+  if (day && typeof day === "string") {
+    day = {
+      date: day,
+      day: new Date(day).toLocaleDateString("en-US", { weekday: "long" }),
+    };
+  }
+
   if (!day || !yachtId) {
+
     return (
       <div className="container mt-5 text-center">
-        <p>⚠️ No yacht or date selected. Go back to the availability page.</p>
+        <p>⚠️ No yacht or date selected. Go back to the availability page.  </p>
+        <p>{day}</p>
+        <p>{yachtId}</p>
         <button
           className="btn btn-primary shadow-sm px-4"
           onClick={() => navigate(-1)}
@@ -93,7 +105,7 @@ function DayAvailability() {
       !(yachtObj.slotDurationMinutes || yachtObj.duration)
     )
       return [];
-    console.log("Here is obj " , yachtObj )
+    console.log("Here is obj ", yachtObj)
     // duration can be "HH:MM" or a number (minutes or string number)
     const duration = yachtObj.slotDurationMinutes || yachtObj.duration;
     let durationMinutes = 0;
@@ -108,7 +120,7 @@ function DayAvailability() {
     // names per your mapping
     const dayStart = yachtObj.sailStartTime;
     const dayEnd = yachtObj.sailEndTime;
-    const specialSlotTime = yachtObj.specialSlotTime  || null;
+    const specialSlotTime = yachtObj.specialSlotTime || null;
 
     const startMin = hhmmToMinutes(dayStart);
     const endMin = hhmmToMinutes(dayEnd);
@@ -163,7 +175,7 @@ function DayAvailability() {
     });
     unique.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
 
-    console.log("Here are slots" , unique)
+    console.log("Here are slots", unique)
     return unique;
   };
 
@@ -282,15 +294,15 @@ function DayAvailability() {
         token
       );
       if (res?.success) {
-        alert("✅ Slot locked successfully!");
+        toast.success("✅ Slot locked successfully!");
         window.bootstrap.Modal.getInstance(
           document.getElementById("lockModal")
         )?.hide();
         fetchTimeline();
-      } else alert(res?.message || "Failed to lock slot");
+      } else toast.error(res?.message || "Failed to lock slot");
     } catch (err) {
       console.error("Lock error:", err);
-      alert("Error locking slot");
+      toast.error("Error locking slot");
     }
   };
 
@@ -305,15 +317,15 @@ function DayAvailability() {
         token
       );
       if (res?.success) {
-        alert("🔓 Slot released successfully!");
+        toast.success("🔓 Slot released successfully!");
         window.bootstrap.Modal.getInstance(
           document.getElementById("confirmModal")
         )?.hide();
         fetchTimeline();
-      } else alert(res?.message || "Failed to release slot");
+      } else toast.error(res?.message || "Failed to release slot");
     } catch (err) {
       console.error("Release error:", err);
-      alert("Error releasing slot");
+      toast.error("Error releasing slot");
     }
   };
 
@@ -417,10 +429,10 @@ function DayAvailability() {
                         ? "bg-danger text-white"
                         : "bg-secondary text-white opacity-50"
                       : slot.type === "booked"
-                      ? "bg-danger text-white"
-                      : slot.type === "locked"
-                      ? "bg-warning text-dark"
-                      : "bg-success text-white";
+                        ? "bg-danger text-white"
+                        : slot.type === "locked"
+                          ? "bg-warning text-dark"
+                          : "bg-success text-white";
 
                     const cursorStyle =
                       disabled && slot.type !== "booked" ? "not-allowed" : "pointer";
