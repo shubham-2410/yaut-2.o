@@ -66,8 +66,8 @@ function Availability() {
               y.yachtPhotos?.length > 0
                 ? y.yachtPhotos
                 : y.photos?.length > 0
-                ? y.photos
-                : [],
+                  ? y.photos
+                  : [],
 
             days: (y.availability || []).map((a) => ({
               day: new Date(a.date).toLocaleDateString("en-US", {
@@ -78,8 +78,8 @@ function Availability() {
                 a.status === "busy"
                   ? "Busy"
                   : a.status === "locked"
-                  ? "Locked"
-                  : "Free",
+                    ? "Locked"
+                    : "Free",
               bookedSlots: a.bookingsCount ? Array(a.bookingsCount).fill({}) : [],
             })),
           }));
@@ -115,10 +115,10 @@ function Availability() {
           filterCapacity === "small"
             ? [1, 5]
             : filterCapacity === "medium"
-            ? [6, 10]
-            : filterCapacity === "large"
-            ? [11, 20]
-            : [21, Infinity];
+              ? [6, 10]
+              : filterCapacity === "large"
+                ? [11, 20]
+                : [21, Infinity];
 
         if (yacht.capacity >= min && yacht.capacity <= max) score += 4;
       }
@@ -128,10 +128,10 @@ function Availability() {
           filterBudget === "low"
             ? [0, 4999]
             : filterBudget === "mid"
-            ? [5000, 10000]
-            : filterBudget === "high"
-            ? [10001, 20000]
-            : [20001, Infinity];
+              ? [5000, 10000]
+              : filterBudget === "high"
+                ? [10001, 20000]
+                : [20001, Infinity];
 
         if (yacht.sellingPrice >= min && yacht.sellingPrice <= max) score += 4;
       }
@@ -244,16 +244,28 @@ function Availability() {
                           day.status === "Busy"
                             ? "#ffd659"
                             : day.status === "Locked"
-                            ? "#d9d9d9"
-                            : "#28a745";
+                              ? "#d9d9d9"
+                              : "#28a745";
 
                         return (
                           <div
                             key={i}
                             className="text-center p-2 day-box"
-                            style={{ background: bg }}
+                            style={{ background: bg, cursor: "pointer" }}
+                            onClick={(e) => {
+                              e.stopPropagation(); // IMPORTANT: prevents triggering card click
+                              navigate(`/availability/${encodeURIComponent(yacht.name)}/${day.date}`, {
+                                state: { yachtId: yacht.yachtId, yachtName: yacht.name, day: day.date },
+                              });
+                            }}
                           >
-                            <strong>{day.day}</strong>
+                            <strong>
+                              {new Date(day.date).toLocaleDateString("en-US", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </strong>
+
                             <br />
                             <small>
                               {day.bookedSlots.length
@@ -261,6 +273,7 @@ function Availability() {
                                 : "Free"}
                             </small>
                           </div>
+
                         );
                       })}
                     </div>
