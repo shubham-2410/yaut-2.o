@@ -25,6 +25,11 @@ function DayAvailability() {
   const [yacht, setYacht] = useState(null);
   const [error, setError] = useState("");
 
+  // prevent multiple clicks
+  const [isLocking, setIsLocking] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
   const token = localStorage.getItem("authToken");
 
   // FIX: convert string → object so react-calendar stops crashing
@@ -36,12 +41,9 @@ function DayAvailability() {
   }
 
   if (!day || !yachtId) {
-
     return (
       <div className="container mt-5 text-center">
-        <p>⚠️ No yacht or date selected. Go back to the availability page.  </p>
-        <p>{day}</p>
-        <p>{yachtId}</p>
+        <p>⚠️ No yacht or date selected. Go back to the availability page.</p>
         <button
           className="btn btn-primary shadow-sm px-4"
           onClick={() => navigate(-1)}
@@ -77,10 +79,10 @@ function DayAvailability() {
     return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
   };
 
-  // ✅ NEW — Disable past slots for today's date (used to compute 'disabled' flag)
+  // Disable past slots for today
   const isPastSlot = (slot) => {
     const today = new Date().toISOString().split("T")[0];
-    if (day.date !== today) return false; // only restrict today
+    if (day.date !== today) return false;
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -89,14 +91,7 @@ function DayAvailability() {
     return slotEnd <= currentMinutes;
   };
 
-  // ------------------------
-  // Version B: CreateBooking's advanced slotting logic (special slot splitting)
-  // variable-name mapping requested:
-  // durationMinutes = duration
-  // startTime = dayStart
-  // endTime = dayEnd
-  // specialSlot = specialSlotTime
-  // ------------------------
+  // Generate slots for yacht
   const buildSlotsForYacht = (yachtObj) => {
     if (
       !yachtObj ||
@@ -105,19 +100,19 @@ function DayAvailability() {
       !(yachtObj.slotDurationMinutes || yachtObj.duration)
     )
       return [];
-    console.log("Here is obj ", yachtObj)
-    // duration can be "HH:MM" or a number (minutes or string number)
+
     const duration = yachtObj.slotDurationMinutes || yachtObj.duration;
     let durationMinutes = 0;
+
     if (typeof duration === "string" && duration.includes(":")) {
       const [dh, dm] = duration.split(":").map(Number);
-      durationMinutes = (Number(dh) || 0) * 60 + (Number(dm) || 0);
+      durationMinutes = dh * 60 + dm;
     } else {
       durationMinutes = Number(duration) || 0;
     }
+
     if (durationMinutes <= 0) return [];
 
-    // names per your mapping
     const dayStart = yachtObj.sailStartTime;
     const dayEnd = yachtObj.sailEndTime;
     const specialSlotTime = yachtObj.specialSlotTime || null;
@@ -134,20 +129,17 @@ function DayAvailability() {
     let cursor = startMin;
 
     while (cursor < endMin) {
-      // if special slot falls inside the next regular block, split
       if (
         specialIsValid &&
         specialMin > cursor &&
         specialMin < cursor + durationMinutes
       ) {
-        // add partial slot before the special slot (if any)
         if (specialMin > cursor) {
           slots.push({
             start: minutesToHHMM(cursor),
             end: minutesToHHMM(specialMin),
           });
         }
-        // add the special slot (special length = durationMinutes, but clipped to endMin)
         const specialEnd = Math.min(specialMin + durationMinutes, endMin);
         slots.push({
           start: minutesToHHMM(specialMin),
@@ -165,7 +157,6 @@ function DayAvailability() {
       cursor = next;
     }
 
-    // dedupe & sort as in CreateBooking
     const seen = new Set();
     const unique = slots.filter((s) => {
       const key = `${s.start}-${s.end}`;
@@ -173,25 +164,23 @@ function DayAvailability() {
       seen.add(key);
       return true;
     });
-    unique.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
 
-    console.log("Here are slots", unique)
+    unique.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
     return unique;
   };
 
-  // buildTimeline: preserves custName & empName for booked/locked
-  const buildTimeline = (yachtObj, bookedSlots = [], lockedSlots = []) => {
+  const buildTimeline = (yachtObj, booked = [], locked = []) => {
     const freeSlots = buildSlotsForYacht(yachtObj);
 
     const normalizedBusy = [
-      ...(bookedSlots || []).map((b) => ({
+      ...booked.map((b) => ({
         start: b.startTime || b.start,
         end: b.endTime || b.end,
         type: "booked",
-        custName: b.custName || b.customerName || b.customer || b.custName || "",
+        custName: b.custName || b.customerName || "",
         empName: b.empName || b.employeeName || "",
       })),
-      ...(lockedSlots || []).map((l) => ({
+      ...locked.map((l) => ({
         start: l.startTime || l.start,
         end: l.endTime || l.end,
         type: "locked",
@@ -208,36 +197,33 @@ function DayAvailability() {
           )
       );
 
-      if (overlaps.length === 0) {
-        return { ...slot, type: "free" };
-      }
+      if (overlaps.length === 0) return { ...slot, type: "free" };
 
-      const hasBooked = overlaps.some((o) => o.type === "booked");
-      if (hasBooked) {
-        const bookedOverlap = overlaps.find((o) => o.type === "booked");
+      const bookedOverlap = overlaps.find((o) => o.type === "booked");
+      if (bookedOverlap) {
         return {
           ...slot,
           type: "booked",
-          custName: bookedOverlap?.custName || "",
-          empName: bookedOverlap?.empName || "",
+          custName: bookedOverlap.custName,
+          empName: bookedOverlap.empName,
         };
       }
 
-      // locked overlap
       const lockedOverlap = overlaps.find((o) => o.type === "locked");
       return {
         ...slot,
         type: "locked",
-        empName: lockedOverlap?.empName || "",
+        empName: lockedOverlap.empName,
       };
     });
   };
 
-  // ---------- Data Fetch ----------
+  // ---------- Fetch ----------
   const fetchTimeline = async () => {
     try {
       setLoading(true);
       setError("");
+
       const yachtRes = await getYachtById(yachtId, token);
       const yachtData = yachtRes?.data?.yacht ?? yachtRes?.yacht ?? yachtRes;
       setYacht(yachtData);
@@ -245,7 +231,7 @@ function DayAvailability() {
       const dayResRaw = await getDayAvailability(yachtId, day.date, token);
       const dayRes = dayResRaw?.data ?? dayResRaw;
 
-      if ((dayRes?.success || dayRes?.bookedSlots !== undefined) && yachtData) {
+      if (yachtData) {
         const booked = dayRes.bookedSlots || [];
         const locked = dayRes.lockedSlots || [];
         setTimeline(buildTimeline(yachtData, booked, locked));
@@ -253,8 +239,7 @@ function DayAvailability() {
         setTimeline([]);
       }
     } catch (err) {
-      console.error("❌ Failed to fetch timeline:", err);
-      setError(err.response?.data?.message || "Failed to create booking");
+      setError("Failed to load timeline");
       setTimeline([]);
     } finally {
       setLoading(false);
@@ -263,12 +248,10 @@ function DayAvailability() {
 
   useEffect(() => {
     fetchTimeline();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yachtId, day.date]);
 
   // ---------- Slot Interactions ----------
   const handleSlotClick = (slot) => {
-    // selected slot updated even if booked (we show booked modal)
     setSelectedSlot(slot);
 
     setTimeout(() => {
@@ -284,7 +267,10 @@ function DayAvailability() {
 
   const handleLockSlot = async (e) => {
     e.preventDefault();
-    if (!selectedSlot) return;
+    if (!selectedSlot || isLocking) return;
+
+    setIsLocking(true);
+
     try {
       const res = await lockSlot(
         yachtId,
@@ -293,21 +279,26 @@ function DayAvailability() {
         selectedSlot.end,
         token
       );
+
       if (res?.success) {
-        toast.success("✅ Slot locked successfully!");
+        toast.success("Slot locked successfully!");
         window.bootstrap.Modal.getInstance(
           document.getElementById("lockModal")
         )?.hide();
         fetchTimeline();
       } else toast.error(res?.message || "Failed to lock slot");
-    } catch (err) {
-      console.error("Lock error:", err);
+    } catch {
       toast.error("Error locking slot");
+    } finally {
+      setIsLocking(false);
     }
   };
 
   const handleReleaseLock = async () => {
-    if (!selectedSlot) return;
+    if (!selectedSlot || isReleasing) return;
+
+    setIsReleasing(true);
+
     try {
       const res = await releaseSlot(
         yachtId,
@@ -316,25 +307,31 @@ function DayAvailability() {
         selectedSlot.end,
         token
       );
+
       if (res?.success) {
-        toast.success("🔓 Slot released successfully!");
+        toast.success("Slot released successfully!");
         window.bootstrap.Modal.getInstance(
           document.getElementById("confirmModal")
         )?.hide();
         fetchTimeline();
       } else toast.error(res?.message || "Failed to release slot");
-    } catch (err) {
-      console.error("Release error:", err);
+    } catch {
       toast.error("Error releasing slot");
+    } finally {
+      setIsReleasing(false);
     }
   };
 
   const handleConfirmBooking = (e) => {
     e.preventDefault();
-    if (!selectedSlot) return;
+    if (!selectedSlot || isConfirming) return;
+
+    setIsConfirming(true);
+
     window.bootstrap.Modal.getInstance(
       document.getElementById("confirmModal")
     )?.hide();
+
     navigate("/create-booking", {
       state: {
         yachtId,
@@ -345,6 +342,8 @@ function DayAvailability() {
         endTime: selectedSlot.end,
       },
     });
+
+    setIsConfirming(false);
   };
 
   // ---------- Render ----------
@@ -377,6 +376,7 @@ function DayAvailability() {
           <h5 className="text-center fw-semibold text-secondary mb-3">
             📅 Select Date
           </h5>
+
           <Calendar
             onChange={(selectedDate) => {
               const year = selectedDate.getFullYear();
@@ -396,6 +396,7 @@ function DayAvailability() {
             }}
             value={new Date(day.date)}
             minDate={new Date()}
+            maxDate={new Date(new Date().setMonth(new Date().getMonth() + 6))}
             next2Label={null}
             prev2Label={null}
             className="shadow-sm rounded-4"
@@ -422,8 +423,6 @@ function DayAvailability() {
                   {timeline.map((slot, idx) => {
                     const disabled = isPastSlot(slot);
 
-                    // If slot is past and NOT booked, grey/disable it.
-                    // Past booked slots must remain red and clickable.
                     const slotClass = disabled
                       ? slot.type === "booked"
                         ? "bg-danger text-white"
@@ -435,7 +434,9 @@ function DayAvailability() {
                           : "bg-success text-white";
 
                     const cursorStyle =
-                      disabled && slot.type !== "booked" ? "not-allowed" : "pointer";
+                      disabled && slot.type !== "booked"
+                        ? "not-allowed"
+                        : "pointer";
 
                     return (
                       <div
@@ -443,12 +444,12 @@ function DayAvailability() {
                         className={`slot-btn px-3 py-2 rounded fw-semibold text-center ${slotClass}`}
                         style={{ cursor: cursorStyle }}
                         onClick={() => {
-                          // block clicking past free/locked slots
                           if (disabled && slot.type !== "booked") return;
                           handleSlotClick(slot);
                         }}
                       >
-                        {to12HourFormat(slot.start)} — {to12HourFormat(slot.end)}
+                        {to12HourFormat(slot.start)} —{" "}
+                        {to12HourFormat(slot.end)}
                       </div>
                     );
                   })}
@@ -472,35 +473,28 @@ function DayAvailability() {
             <form onSubmit={handleLockSlot}>
               <div className="modal-header bg-warning bg-opacity-25">
                 <h5 className="modal-title">Lock Time Slot</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  data-bs-dismiss="modal"
-                ></button>
+                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
               </div>
               <div className="modal-body text-center">
                 {selectedSlot && (
                   <p className="fs-6">
                     Are you sure you want to lock this slot?
                     <br />
-                    <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
+                    <strong>{to12HourFormat(selectedSlot.start)}</strong> —
                     <strong>{to12HourFormat(selectedSlot.end)}</strong>
                   </p>
                 )}
               </div>
               <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  data-bs-dismiss="modal"
-                >
+                <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-warning text-dark fw-semibold"
+                  disabled={isLocking}
                 >
-                  Lock Slot
+                  {isLocking ? "Locking..." : "Lock Slot"}
                 </button>
               </div>
             </form>
@@ -508,29 +502,26 @@ function DayAvailability() {
         </div>
       </div>
 
-      {/* Confirm Booking Modal (Locked slot -> confirm booking) */}
+      {/* Confirm Booking Modal */}
       <div className="modal fade" id="confirmModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content rounded-4">
             <form onSubmit={handleConfirmBooking}>
               <div className="modal-header bg-primary bg-opacity-10">
                 <h5 className="modal-title">Confirm Booking</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  data-bs-dismiss="modal"
-                ></button>
+                <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
               </div>
+
               <div className="modal-body text-center">
                 {selectedSlot && (
                   <>
                     <div className="fs-6">
-                      Locked slot:{" "}
-                      <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
+                      Locked slot: <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
                       <strong>{to12HourFormat(selectedSlot.end)}</strong>
                     </div>
-
-                    <div className="mt-2 fs-6">Locked by: {selectedSlot.empName}</div>
+                    <div className="mt-2 fs-6">
+                      Locked by: {selectedSlot.empName}
+                    </div>
                   </>
                 )}
               </div>
@@ -540,11 +531,17 @@ function DayAvailability() {
                   type="button"
                   className="btn btn-outline-danger"
                   onClick={handleReleaseLock}
+                  disabled={isReleasing}
                 >
-                  Release Lock
+                  {isReleasing ? "Releasing..." : "Release Lock"}
                 </button>
-                <button type="submit" className="btn btn-primary fw-semibold">
-                  Confirm Booking
+
+                <button
+                  type="submit"
+                  className="btn btn-primary fw-semibold"
+                  disabled={isConfirming}
+                >
+                  {isConfirming ? "Please wait..." : "Confirm Booking"}
                 </button>
               </div>
             </form>
@@ -552,25 +549,20 @@ function DayAvailability() {
         </div>
       </div>
 
-      {/* Booked Slot Details Modal */}
+      {/* Booked Slot Modal */}
       <div className="modal fade" id="bookedModal" tabIndex="-1" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content rounded-4">
             <div className="modal-header bg-danger bg-opacity-10">
               <h5 className="modal-title">Booked Slot Details</h5>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-              ></button>
+              <button type="button" className="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
             <div className="modal-body text-center">
               {selectedSlot && (
                 <>
                   <div className="fs-6">
-                    Time:{" "}
-                    <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
+                    Time: <strong>{to12HourFormat(selectedSlot.start)}</strong> —{" "}
                     <strong>{to12HourFormat(selectedSlot.end)}</strong>
                   </div>
 
@@ -590,11 +582,7 @@ function DayAvailability() {
             </div>
 
             <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                data-bs-dismiss="modal"
-              >
+              <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">
                 Close
               </button>
             </div>

@@ -44,7 +44,7 @@ function CreateBooking() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
-  // ✅ Fetch yachts
+  //  Fetch yachts
   useEffect(() => {
     const fetchYachts = async () => {
       try {
@@ -61,7 +61,7 @@ function CreateBooking() {
     fetchYachts();
   }, []);
 
-  // ✅ Slot generator with special slot logic
+  //  Slot generator with special slot logic
   const buildSlotsForYacht = (yacht) => {
     if (
       !yacht ||
@@ -142,7 +142,7 @@ function CreateBooking() {
     );
   };
 
-  // ✅ Update startTimeOptions whenever yacht changes
+  //  Update startTimeOptions whenever yacht changes
   useEffect(() => {
     const selectedYacht = yachts.find((y) => y.id === formData.yachtId);
     if (!selectedYacht) {
@@ -192,7 +192,7 @@ function CreateBooking() {
     runningCost &&
     parseFloat(formData.totalAmount) < runningCost;
 
-  // ✅ Handle Submit
+  //  Handle Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -240,7 +240,7 @@ function CreateBooking() {
 
       await createBookingAPI(bookingPayload, token);
 
-      toast.success("✅ Booking created successfully!", {
+      toast.success(" Booking created successfully!", {
         duration: 3000,
         style: { borderRadius: "10px", background: "#333", color: "#fff" },
       });

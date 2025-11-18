@@ -6,13 +6,13 @@ function Bookings({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ read URL params
+  //  read URL params
   const params = new URLSearchParams(location.search);
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ Filters initialized from URL (or defaults)
+  //  Filters initialized from URL (or defaults)
   const [filterDate, setFilterDate] = useState(
     params.get("date") || new Date().toISOString().split("T")[0]
   );
@@ -21,7 +21,7 @@ function Bookings({ user }) {
     params.get("status") || ""
   );
 
-  // ✅ Sync filters → URL whenever they change
+  //  Sync filters → URL whenever they change
   useEffect(() => {
     const p = new URLSearchParams();
     if (filterDate) p.set("date", filterDate);
@@ -30,7 +30,7 @@ function Bookings({ user }) {
     navigate({ search: p.toString() }, { replace: true });
   }, [filterDate, filterStatus]);
 
-  // ✅ Fetch bookings
+  //  Fetch bookings
   const fetchBookings = async (filters = {}) => {
     try {
       setLoading(true);
@@ -44,7 +44,7 @@ function Bookings({ user }) {
     }
   };
 
-  // ✅ Whenever filters change → fetch bookings
+  //  Whenever filters change → fetch bookings
   useEffect(() => {
     const filters = {};
     if (filterDate) filters.date = filterDate;
@@ -53,7 +53,7 @@ function Bookings({ user }) {
     fetchBookings(filters);
   }, [filterDate, filterStatus]);
 
-  // ✅ Clear filters
+  //  Clear filters
   const handleClear = () => {
     const today = new Date().toISOString().split("T")[0];
     setFilterDate(today);

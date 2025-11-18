@@ -30,7 +30,7 @@ function App() {
   const navigate = useNavigate();
   const role = user?.type?.toLowerCase();
 
-  // ✅ LOGOUT FUNCTION
+  //  LOGOUT FUNCTION
   const logoutUser = () => {
     setUser(null);
     localStorage.removeItem("user");
@@ -38,7 +38,7 @@ function App() {
     navigate("/");
   };
 
-  // ✅ LOGIN FUNCTION
+  //  LOGIN FUNCTION
   const handleLogin = (data) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
@@ -47,7 +47,7 @@ function App() {
     if (token) scheduleAutoLogout(token);
   };
 
-  // ✅ AUTO LOGOUT BASED ON TOKEN EXPIRY
+  //  AUTO LOGOUT BASED ON TOKEN EXPIRY
   const scheduleAutoLogout = (token) => {
     try {
       const decoded = jwtDecode(token);
@@ -64,7 +64,7 @@ function App() {
     }
   };
 
-  // ✅ RUN ON PAGE LOAD / REFRESH
+  //  RUN ON PAGE LOAD / REFRESH
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (token) {
@@ -81,7 +81,7 @@ function App() {
     }
   }, []);
 
-  // ✅ AXIOS INTERCEPTOR → Auto logout on 401
+  //  AXIOS INTERCEPTOR → Auto logout on 401
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (res) => res,

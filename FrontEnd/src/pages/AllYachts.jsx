@@ -19,7 +19,7 @@ const AllYachts = () => {
 
   const navigate = useNavigate();
 
-  // ✅ Convert ANY FORMAT to minutes for UI display
+  //  Convert ANY FORMAT to minutes for UI display
   const toMinutes = (value) => {
     if (!value) return 0;
 
@@ -35,7 +35,7 @@ const AllYachts = () => {
     return Number(str);
   };
 
-  // ✅ Convert minutes to backend HH:MM format
+  //  Convert minutes to backend HH:MM format
   const minutesToHHMM = (minutes) => {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
@@ -118,19 +118,19 @@ const AllYachts = () => {
 
     const { runningCost, sellingPrice, maxSellingPrice, name } = selectedYacht;
 
-    // ✅ Required field checks
+    //  Required field checks
     // if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
     //   alert("Please fill all required fields.");
     //   return;
     // }
 
-    // // ✅ Validation 1 — Selling Price > Running Cost
+    // //  Validation 1 — Selling Price > Running Cost
     // if (Number(sellingPrice) <= Number(runningCost)) {
     //   alert("Selling Price must be greater than Running Cost.");
     //   return;
     // }
 
-    // // ✅ Validation 2 — Max Selling Price > Selling Price
+    // //  Validation 2 — Max Selling Price > Selling Price
     // if (Number(maxSellingPrice) <= Number(sellingPrice)) {
     //   alert("Max Selling Price must be greater than Selling Price.");
     //   return;
@@ -221,7 +221,7 @@ const AllYachts = () => {
     );
 
   // ------------------------------------------------------------------
-  // ✅ MAIN RETURN UI
+  //  MAIN RETURN UI
   // ------------------------------------------------------------------
   return (
     <div className="container my-4 px-2">
@@ -284,7 +284,7 @@ const AllYachts = () => {
                         onClick={() => {
                           setSelectedYacht({
                             ...yacht,
-                            duration: toMinutes(yacht.duration), // ✅ always minutes
+                            duration: toMinutes(yacht.duration), //  always minutes
                           });
                           setShowEditModal(true);
                         }}
@@ -463,7 +463,7 @@ const AllYachts = () => {
                         {field.replace(/([A-Z])/g, " $1")}
                       </label>
 
-                      {/* ✅ Duration always in MINUTES */}
+                      {/*  Duration always in MINUTES */}
                       {field === "duration" ? (
                         <input
                           type="number"

@@ -26,7 +26,7 @@ function CreateYacht() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [photoError, setPhotoError] = useState("");
 
-  // ✅ Price Validation
+  //  Price Validation
   useEffect(() => {
     const errors = {};
     const running = Number(yacht.runningCost);
@@ -54,7 +54,7 @@ function CreateYacht() {
     setYacht((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Photo Upload Validation
+  //  Photo Upload Validation
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
 
@@ -143,7 +143,7 @@ function CreateYacht() {
       };
 
       await createYacht(payload, token);
-      toast.success("✅ Yacht created successfully!", {
+      toast.success(" Yacht created successfully!", {
         duration: 3000, // disappears after 3 seconds
         style: {
           borderRadius: "10px",
@@ -161,7 +161,7 @@ function CreateYacht() {
 
   return (
     <>
-      {/* ✅ Full-screen loader overlay */}
+      {/*  Full-screen loader overlay */}
       {loading && (
         <div
           style={{

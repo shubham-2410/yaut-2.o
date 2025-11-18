@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ import navigate
+import { useNavigate } from "react-router-dom"; //  import navigate
 import { loginAPI } from "../services/operations/authAPI";
 
 function Login({ onLogin }) {
@@ -7,7 +7,7 @@ function Login({ onLogin }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate(); // ✅ setup navigate
+  const navigate = useNavigate(); //  setup navigate
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +25,7 @@ function Login({ onLogin }) {
       ) {
         const { employee, token } = response.data;
 
-        console.log("✅ Login successful:", employee);
+        console.log(" Login successful:", employee);
         console.log("🔑 Token:", token);
 
         // Save token in localStorage
@@ -34,7 +34,7 @@ function Login({ onLogin }) {
         // Update App state
         onLogin({ ...employee, token });
 
-        // ✅ Redirect based on role
+        //  Redirect based on role
         if (employee.type === "admin") {
           navigate("/admin");
         } else if (employee.type === "backdesk") {

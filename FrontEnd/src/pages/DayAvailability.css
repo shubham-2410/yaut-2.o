@@ -1,10 +1,10 @@
-/* ✅ Remove border around react-calendar */
+/*  Remove border around react-calendar */
 .react-calendar {
   border: none !important;
   margin: auto;
 }
 
-/* ✅ Bigger calendar for screens >= 600px */
+/*  Bigger calendar for screens >= 600px */
 @media (min-width: 650px) {
   .react-calendar {
     transform: scale(1.05);
@@ -12,7 +12,7 @@
   }
 }
 
-/* ✅ Make calendar dates round */
+/*  Make calendar dates round */
 .react-calendar__tile {
   border-radius: 50% !important;
   height: 45px !important;
@@ -28,7 +28,7 @@
   border-radius: 50% !important;
 }
 
-/* ✅ Parent wrapper uses full width and centers the layout */
+/*  Parent wrapper uses full width and centers the layout */
 .availability-wrapper {
   width: 100%;
   max-width: 1400px;
@@ -37,7 +37,7 @@
   gap: 20px;
 }
 
-/* ✅ Desktop + Tablet: side by side */
+/*  Desktop + Tablet: side by side */
 .availability-left {
   flex: 0 0 50%;
   max-width: 50%;
@@ -47,7 +47,7 @@
   flex: 1;
 }
 
-/* ✅ Mobile (<600px): stack vertical */
+/*  Mobile (<600px): stack vertical */
 @media (max-width: 600px) {
   .availability-wrapper {
     flex-direction: column;
@@ -65,7 +65,7 @@
   }
 }
 
-/* ✅ For tablets & small screens (< 750px): expand container */
+/*  For tablets & small screens (< 750px): expand container */
 @media (max-width: 750px) {
   .day-container {
     width: 95% !important;
@@ -80,7 +80,7 @@
   }
 }
 
-/* ✅ NEW — Only one slot per line */
+/*  NEW — Only one slot per line */
 .slot-column-container {
   display: flex;
   flex-direction: column;
@@ -88,7 +88,7 @@
   width: 100%;
 }
 
-/* ✅ Full-width slot buttons */
+/*  Full-width slot buttons */
 .slot-column-container .slot-btn {
   width: 100%;
   text-align: center;
@@ -101,7 +101,7 @@
   margin: 5px 0;
  }
 
-/* ✅ Disabled slots style for clarity */
+/*  Disabled slots style for clarity */
 .slot-btn.disabled,
 .bg-secondary.opacity-50 {
   cursor: not-allowed !important;

@@ -259,15 +259,39 @@ function Availability() {
                               });
                             }}
                           >
-                            <strong>
+                            {/* <strong>
                               {new Date(day.date).toLocaleDateString("en-US", {
                                 day: "numeric",
                                 month: "short",
                               })}
+                            </strong> */}
+
+                            <strong style={{ color: "#145DA0" }}>
+                              {(() => {
+                                const d = new Date(day.date);
+                                const today = new Date();
+                                const tomorrow = new Date();
+                                const dayAfter = new Date();
+
+                                tomorrow.setDate(today.getDate() + 1);
+                                dayAfter.setDate(today.getDate() + 2);
+
+                                const same = (a, b) =>
+                                  a.getFullYear() === b.getFullYear() &&
+                                  a.getMonth() === b.getMonth() &&
+                                  a.getDate() === b.getDate();
+
+                                if (same(d, today)) return "Today";
+                                if (same(d, tomorrow)) return "Tomorrow";
+                                if (same(d, dayAfter)) return "Other📅";
+
+                                return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+                              })()}
                             </strong>
 
+
                             <br />
-                            <small>
+                            <small >
                               {day.bookedSlots.length
                                 ? `${day.bookedSlots.length} bookings`
                                 : "Free"}

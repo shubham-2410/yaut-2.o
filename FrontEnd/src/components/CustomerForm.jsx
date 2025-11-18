@@ -49,8 +49,8 @@ function CustomerForm() {
       }
 
       const res = await createCustomerAPI(payload, token);
-      // console.log("✅ Customer created:", res.data);
-      // alert("✅ Customer profile created successfully!");
+      // console.log(" Customer created:", res.data);
+      // alert(" Customer profile created successfully!");
       toast.success("Customer profile created successfully!");
       // Reset form
       setFormData({

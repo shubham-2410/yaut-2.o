@@ -2,7 +2,7 @@
 import { apiConnector } from "../apiConnector";
 import { employee } from "../apis";
 
-// ✅ Fetch all employees
+//  Fetch all employees
 export const getAllEmployeesAPI = async (token) => {
   try {
     const response = await apiConnector("GET", employee.GET_ALL_EMPLOYEES_API, null, {
@@ -15,7 +15,7 @@ export const getAllEmployeesAPI = async (token) => {
   }
 };
 
-// ✅ Update employee status
+//  Update employee status
 export const updateEmployeeStatusAPI = async (id, status, token) => {
   try {
     const response = await apiConnector(

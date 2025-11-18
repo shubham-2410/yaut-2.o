@@ -46,12 +46,12 @@ function CreateEmployee() {
         email: formData.email,
         username: formData.username,
         password: formData.password,
-        status: formData.status, // ✅ Now matches Zod enum
+        status: formData.status, //  Now matches Zod enum
       };
 
       const res = await createEmployeeAPI(payload, token);
-      console.log("✅ Employee created:", res.data);
-      toast.success("✅ Employee created successfully!", {
+      console.log(" Employee created:", res.data);
+      toast.success(" Employee created successfully!", {
   duration: 3000, // disappears after 3 seconds
   style: {
     borderRadius: "10px",
