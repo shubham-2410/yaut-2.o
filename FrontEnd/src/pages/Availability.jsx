@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { Carousel } from "react-bootstrap"; // <-- import Carousel
+import { Carousel } from "react-bootstrap";
 import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { useNavigate, useLocation } from "react-router-dom";
 import { generateTextImage } from "../utils/generateTextImage";
@@ -142,7 +142,6 @@ function Availability() {
 
   return (
     <div className="container mt-4 mb-4">
-
       <h3 className="text-center mb-4 availability-title">
         Yacht Availability
       </h3>
@@ -253,19 +252,41 @@ function Availability() {
                             className="text-center p-2 day-box"
                             style={{ background: bg, cursor: "pointer" }}
                             onClick={(e) => {
-                              e.stopPropagation(); // IMPORTANT: prevents triggering card click
-                              navigate(`/availability/${encodeURIComponent(yacht.name)}/${day.date}`, {
-                                state: { yachtId: yacht.yachtId, yachtName: yacht.name, day: day.date },
-                              });
+                              e.stopPropagation();
+                              
+                              // Check if this is the "Other" day (3rd day)
+                              const d = new Date(day.date);
+                              const dayAfter = new Date();
+                              dayAfter.setDate(new Date().getDate() + 2);
+                              
+                              const same = (a, b) =>
+                                a.getFullYear() === b.getFullYear() &&
+                                a.getMonth() === b.getMonth() &&
+                                a.getDate() === b.getDate();
+                              
+                              const isOtherDay = same(d, dayAfter);
+                              
+                              if (isOtherDay) {
+                                // For "Other", navigate WITHOUT date
+                                navigate(`/availability/${encodeURIComponent(yacht.name)}`, {
+                                  state: { 
+                                    yachtId: yacht.yachtId, 
+                                    yachtName: yacht.name,
+                                    requireDateSelection: true
+                                  },
+                                });
+                              } else {
+                                // For Today/Tomorrow, navigate WITH date
+                                navigate(`/availability/${encodeURIComponent(yacht.name)}/${day.date}`, {
+                                  state: { 
+                                    yachtId: yacht.yachtId, 
+                                    yachtName: yacht.name, 
+                                    day: day.date 
+                                  },
+                                });
+                              }
                             }}
                           >
-                            {/* <strong>
-                              {new Date(day.date).toLocaleDateString("en-US", {
-                                day: "numeric",
-                                month: "short",
-                              })}
-                            </strong> */}
-
                             <strong style={{ color: "#145DA0" }}>
                               {(() => {
                                 const d = new Date(day.date);
@@ -283,33 +304,29 @@ function Availability() {
 
                                 if (same(d, today)) return "Today";
                                 if (same(d, tomorrow)) return "Tomorrow";
-                                if (same(d, dayAfter)) return "Other📅";
+                                if (same(d, dayAfter)) return "Other";
 
                                 return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
                               })()}
                             </strong>
 
-
                             <br />
-                            <small >
+                            <small>
                               {day.bookedSlots.length
                                 ? `${day.bookedSlots.length} bookings`
                                 : "Free"}
                             </small>
                           </div>
-
                         );
                       })}
                     </div>
                   </div>
-
                 </div>
               </div>
             );
           })
         )}
       </div>
-
     </div>
   );
 }

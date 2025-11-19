@@ -156,7 +156,7 @@ function App() {
         />
 
         <Route
-          path="/availability/:yachtName/:date"
+          path="/availability/:yachtName/:date?"
           element={
             <ProtectedRoute user={user}>
               {["admin", "backdesk"].includes(role) ? <DayAvailability /> : <NotFound />}

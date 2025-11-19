@@ -1,4 +1,3 @@
-// DayAvailability.jsx
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Calendar from "react-calendar";
@@ -17,13 +16,15 @@ import { getYachtById } from "../services/operations/yautAPI";
 function DayAvailability() {
   const location = useLocation();
   const navigate = useNavigate();
-  let { yachtId, yachtName, day } = location.state || {};
+  let { yachtId, yachtName, day, requireDateSelection } = location.state || {};
 
   const [timeline, setTimeline] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [yacht, setYacht] = useState(null);
   const [error, setError] = useState("");
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isCalendarDisabled, setIsCalendarDisabled] = useState(false);
 
   // prevent multiple clicks
   const [isLocking, setIsLocking] = useState(false);
@@ -32,18 +33,30 @@ function DayAvailability() {
 
   const token = localStorage.getItem("authToken");
 
-  // FIX: convert string → object so react-calendar stops crashing
-  if (day && typeof day === "string") {
-    day = {
-      date: day,
-      day: new Date(day).toLocaleDateString("en-US", { weekday: "long" }),
-    };
-  }
+  // Handle initial state based on whether date selection is required
+  useEffect(() => {
+    if (requireDateSelection) {
+      // User clicked "Other" - no date selected yet
+      setError("📅 Please select a date from the calendar to view available time slots");
+      setSelectedDate(null);
+      day = null;
+    } else if (day) {
+      // Convert string → object if needed
+      if (typeof day === "string") {
+        day = {
+          date: day,
+          day: new Date(day).toLocaleDateString("en-US", { weekday: "long" }),
+        };
+      }
+      setSelectedDate(new Date(day.date));
+      setError("");
+    }
+  }, [requireDateSelection]);
 
-  if (!day || !yachtId) {
+  if (!yachtId) {
     return (
       <div className="container mt-5 text-center">
-        <p>⚠️ No yacht or date selected. Go back to the availability page.</p>
+        <p>⚠️ No yacht selected. Go back to the availability page.</p>
         <button
           className="btn btn-primary shadow-sm px-4"
           onClick={() => navigate(-1)}
@@ -220,8 +233,17 @@ function DayAvailability() {
 
   // ---------- Fetch ----------
   const fetchTimeline = async () => {
+    // Don't fetch if no date is selected
+    if (!day || !day.date) {
+      setTimeline([]);
+      setLoading(false);
+      setIsCalendarDisabled(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setIsCalendarDisabled(true);
       setError("");
 
       const yachtRes = await getYachtById(yachtId, token);
@@ -243,12 +265,15 @@ function DayAvailability() {
       setTimeline([]);
     } finally {
       setLoading(false);
+      setIsCalendarDisabled(false);
     }
   };
 
   useEffect(() => {
-    fetchTimeline();
-  }, [yachtId, day.date]);
+    if (day && day.date) {
+      fetchTimeline();
+    }
+  }, [yachtId, day?.date]);
 
   // ---------- Slot Interactions ----------
   const handleSlotClick = (slot) => {
@@ -349,7 +374,40 @@ function DayAvailability() {
   // ---------- Render ----------
   return (
     <div className="container py-4 day-container">
-      {error && <div className="alert alert-danger">{error}</div>}
+      {/* PREMIUM LOADING OVERLAY */}
+      {loading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            animation: "fadeIn 0.2s ease-in",
+          }}
+        >
+          <div
+            className="spinner-border text-light"
+            role="status"
+            style={{ width: "4rem", height: "4rem", borderWidth: "0.3rem" }}
+          >
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p
+            className="text-light mt-4 mb-0 fw-semibold"
+            style={{ fontSize: "1.1rem", letterSpacing: "0.5px" }}
+          >
+            Loading time slots...
+          </p>
+        </div>
+      )}
 
       <div className="card shadow-sm mb-4 border-0 rounded-4 p-3">
         <div className="d-flex align-items-center justify-content-between">
@@ -363,7 +421,7 @@ function DayAvailability() {
           <div className="text-center flex-grow-1">
             <h4 className="fw-bold text-primary mb-1">{yachtName}</h4>
             <h6 className="text-muted mb-0">
-              {day.day}, {day.date}
+              {day && day.day ? `${day.day}, ${day.date}` : "Please select a date"}
             </h6>
           </div>
 
@@ -377,30 +435,46 @@ function DayAvailability() {
             📅 Select Date
           </h5>
 
-          <Calendar
-            onChange={(selectedDate) => {
-              const year = selectedDate.getFullYear();
-              const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
-              const date = String(selectedDate.getDate()).padStart(2, "0");
-              const iso = `${year}-${month}-${date}`;
-
-              const newDay = {
-                date: iso,
-                day: selectedDate.toLocaleDateString("en-US", {
-                  weekday: "long",
-                }),
-              };
-
-              location.state.day = newDay;
-              fetchTimeline();
+          <div
+            style={{
+              position: "relative",
+              pointerEvents: isCalendarDisabled ? "none" : "auto",
+              opacity: isCalendarDisabled ? 0.5 : 1,
+              transition: "opacity 0.3s ease",
             }}
-            value={new Date(day.date)}
-            minDate={new Date()}
-            maxDate={new Date(new Date().setMonth(new Date().getMonth() + 6))}
-            next2Label={null}
-            prev2Label={null}
-            className="shadow-sm rounded-4"
-          />
+          >
+            <Calendar
+              onChange={(selectedDate) => {
+                if (isCalendarDisabled) return;
+
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+                const date = String(selectedDate.getDate()).padStart(2, "0");
+                const iso = `${year}-${month}-${date}`;
+
+                const newDay = {
+                  date: iso,
+                  day: selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                  }),
+                };
+
+                day = newDay;
+                location.state.day = newDay;
+                location.state.requireDateSelection = false;
+
+                setSelectedDate(selectedDate);
+                setError("");
+                fetchTimeline();
+              }}
+              value={selectedDate}
+              minDate={new Date()}
+              maxDate={new Date(new Date().setMonth(new Date().getMonth() + 6))}
+              next2Label={null}
+              prev2Label={null}
+              className="shadow-sm rounded-4"
+            />
+          </div>
         </div>
 
         <div className="availability-right">
@@ -409,11 +483,12 @@ function DayAvailability() {
               🕒 Available Time Slots
             </h5>
 
-            {loading ? (
-              <div className="text-center my-5">
-                <div className="spinner-border text-primary"></div>
+            {error ? (
+              <div className="alert alert-warning text-center py-4 my-4" role="alert">
+                <i className="bi bi-calendar-event fs-3 d-block mb-2"></i>
+                <p className="mb-0 fs-5">{error}</p>
               </div>
-            ) : timeline.length === 0 ? (
+            ) : timeline.length === 0 && !loading ? (
               <div className="text-center text-muted py-5">
                 No available slots for this date.
               </div>
@@ -455,11 +530,13 @@ function DayAvailability() {
                   })}
                 </div>
 
-                <div className="mt-4 text-center">
-                  <span className="badge bg-success me-2">Free</span>
-                  <span className="badge bg-warning text-dark me-2">Locked</span>
-                  <span className="badge bg-danger me-2">Booked</span>
-                </div>
+                {timeline.length > 0 && (
+                  <div className="mt-4 text-center">
+                    <span className="badge bg-success me-2">Free</span>
+                    <span className="badge bg-warning text-dark me-2">Locked</span>
+                    <span className="badge bg-danger me-2">Booked</span>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -589,6 +666,18 @@ function DayAvailability() {
           </div>
         </div>
       </div>
+
+      {/* Add fadeIn animation */}
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }
