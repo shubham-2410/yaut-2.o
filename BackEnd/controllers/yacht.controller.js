@@ -27,7 +27,7 @@ export const getAllYachts = async (req, res, next) => {
       sailStartTime: yacht.sailStartTime,
       sailEndTime: yacht.sailEndTime,
       slotDurationMinutes: yacht.duration,
-      specialSlot: yacht.specialSlotTime,
+      specialSlots: yacht.specialSlotTimes,
       runningCost: yacht.runningCost,
       status: yacht.status,
     }));

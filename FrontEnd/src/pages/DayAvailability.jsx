@@ -104,7 +104,6 @@ function DayAvailability() {
     return slotEnd <= currentMinutes;
   };
 
-  // Generate slots for yacht
   const buildSlotsForYacht = (yachtObj) => {
     if (
       !yachtObj ||
@@ -114,72 +113,125 @@ function DayAvailability() {
     )
       return [];
 
-    const duration = yachtObj.slotDurationMinutes || yachtObj.duration;
-    let durationMinutes = 0;
+    const timeToMin = (t) => {
+      if (!t) return 0;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
 
-    if (typeof duration === "string" && duration.includes(":")) {
-      const [dh, dm] = duration.split(":").map(Number);
-      durationMinutes = dh * 60 + dm;
+    const minToTime = (m) => {
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    };
+
+    // Duration
+    const durationRaw = yachtObj.slotDurationMinutes || yachtObj.duration;
+    let duration = 0;
+    if (typeof durationRaw === "string" && durationRaw.includes(":")) {
+      const [h, m] = durationRaw.split(":").map(Number);
+      duration = h * 60 + (m || 0);
     } else {
-      durationMinutes = Number(duration) || 0;
+      duration = Number(durationRaw);
     }
 
-    if (durationMinutes <= 0) return [];
+    const startMin = timeToMin(yachtObj.sailStartTime);
+    const endMin = timeToMin(yachtObj.sailEndTime);
 
-    const dayStart = yachtObj.sailStartTime;
-    const dayEnd = yachtObj.sailEndTime;
-    const specialSlotTime = yachtObj.specialSlotTime || null;
+    // Gather special slots (single + multiple)
+    const specialMins = [];
 
-    const startMin = hhmmToMinutes(dayStart);
-    const endMin = hhmmToMinutes(dayEnd);
-    if (endMin <= startMin) return [];
+    if (yachtObj.specialSlotTime) specialMins.push(yachtObj.specialSlotTime);
+    if (Array.isArray(yachtObj.specialSlotTimes))
+      specialMins.push(...yachtObj.specialSlotTimes);
+    if (Array.isArray(yachtObj.specialSlots))
+      specialMins.push(...yachtObj.specialSlots);
 
-    const specialMin = specialSlotTime ? hhmmToMinutes(specialSlotTime) : null;
-    const specialIsValid =
-      specialMin && specialMin >= startMin && specialMin < endMin;
+    const specialStarts = specialMins
+      .map(timeToMin)
+      .sort((a, b) => a - b);
 
+    // -----------------------------
+    // PROCESS SPECIAL SLOTS (split overlaps)
+    // -----------------------------
+    const buildProcessedSpecialSlots = (starts, duration) => {
+      const blocks = starts.map((sp) => ({
+        start: sp,
+        end: sp + duration,
+      }));
+
+      blocks.sort((a, b) => a.start - b.start);
+
+      const merged = [];
+
+      for (let block of blocks) {
+        const last = merged[merged.length - 1];
+
+        if (!last || block.start >= last.end) {
+          merged.push(block);
+        } else {
+          // Overlap → split
+          last.end = block.start;
+          merged.push(block);
+        }
+      }
+
+      return merged;
+    };
+
+    const processedSpecials = buildProcessedSpecialSlots(specialStarts, duration);
+
+    // -----------------------------
+    // BUILD NORMAL SLOTS
+    // -----------------------------
     const slots = [];
     let cursor = startMin;
 
     while (cursor < endMin) {
-      if (
-        specialIsValid &&
-        specialMin > cursor &&
-        specialMin < cursor + durationMinutes
-      ) {
-        if (specialMin > cursor) {
-          slots.push({
-            start: minutesToHHMM(cursor),
-            end: minutesToHHMM(specialMin),
-          });
-        }
-        const specialEnd = Math.min(specialMin + durationMinutes, endMin);
-        slots.push({
-          start: minutesToHHMM(specialMin),
-          end: minutesToHHMM(specialEnd),
-        });
-        cursor = specialEnd;
-        continue;
-      }
+      const next = cursor + duration;
 
-      const next = Math.min(cursor + durationMinutes, endMin);
-      slots.push({
-        start: minutesToHHMM(cursor),
-        end: minutesToHHMM(next),
-      });
-      cursor = next;
+      const hit = processedSpecials.find(
+        (sp) => sp.start > cursor && sp.start < next
+      );
+
+      if (hit) {
+        slots.push({ start: cursor, end: hit.start });
+
+        const specialEnd = Math.min(hit.end, endMin);
+        slots.push({ start: hit.start, end: specialEnd });
+
+        cursor = specialEnd;
+      } else {
+        slots.push({
+          start: cursor,
+          end: Math.min(next, endMin),
+        });
+        cursor = next;
+      }
     }
 
+    // -----------------------------
+    // ADD SPECIAL SLOTS OUTSIDE SAIL WINDOW
+    // -----------------------------
+    processedSpecials.forEach((sp) => slots.push(sp));
+
+    // -----------------------------
+    // REMOVE DUPLICATES & SORT
+    // -----------------------------
     const seen = new Set();
-    const unique = slots.filter((s) => {
+    const cleaned = slots.filter((s) => {
       const key = `${s.start}-${s.end}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    unique.sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
-    return unique;
+    cleaned.sort((a, b) => a.start - b.start);
+
+    return cleaned.map((s) => ({
+      start: minToTime(s.start),
+      end: minToTime(s.end),
+    }));
   };
 
   const buildTimeline = (yachtObj, booked = [], locked = []) => {
@@ -249,7 +301,7 @@ function DayAvailability() {
       const yachtRes = await getYachtById(yachtId, token);
       const yachtData = yachtRes?.data?.yacht ?? yachtRes?.yacht ?? yachtRes;
       setYacht(yachtData);
-
+      console.log("Here is yaut data ", yachtData)
       const dayResRaw = await getDayAvailability(yachtId, day.date, token);
       const dayRes = dayResRaw?.data ?? dayResRaw;
 

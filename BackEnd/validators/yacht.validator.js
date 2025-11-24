@@ -33,5 +33,16 @@ export const yachtSchema = z.object({
   sailStartTime: z.string().min(1, "Start Time is required"),
   sailEndTime: z.string().min(1, "End Time is required"),
   duration: z.string().min(1, "Sail Duration is required"),
-  specialSlotTime: z.string().min(1, "Special slot").optional(),
+  specialSlotTimes: z.preprocess(
+  (value) => {
+    if (!value) return [];
+    try {
+      return JSON.parse(value); // Convert string → array
+    } catch {
+      return [];
+    }
+  },
+  z.array(z.string())
+).optional(),
+
 });

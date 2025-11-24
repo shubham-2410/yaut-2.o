@@ -29,13 +29,13 @@ const yachtSchema = new mongoose.Schema(
       required: true,
       match: [/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Duration"],
     },
-    specialSlotTime: {
+    specialSlotTimes: [{
       type: String,
       match: [
         /^(?:[01]\d|2[0-3]):[0-5]\d$/,
         "Special Slot Time must be in HH:MM format",
       ],
-    },
+    }],
     company: {
       type: String,
       required: true,
