@@ -1,7 +1,7 @@
 // src/pages/AdminDashboard.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import Footer from "../components/Footer"; // <- Make sure to import Footer
+import styles from "../styles/AdminDashboard.module.css"; // custom CSS
 
 function AdminDashboard({ user }) {
   const navigate = useNavigate();
@@ -11,25 +11,22 @@ function AdminDashboard({ user }) {
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100">
-      <div className="container mt-4 flex-grow-1">
-        <h2 className="mb-4 text-center">Admin Dashboard</h2>
-        <p className="text-center mb-5">
-          Welcome, <span className="fw-bold">{user?.role}</span>! Manage
-          employees, bookings, and collections here.
+    <div className={styles.dashboardWrapper}>
+      <div className={styles.content}>
+        <h2 className={styles.title}>Admin Dashboard</h2>
+        <p className={styles.subTitle}>
+          Welcome, <span className="fw-bold">{user?.role}</span>! Manage employees, bookings, and yachts here.
         </p>
 
         <div className="row g-4">
-          {/* Create Employee Card */}
+          {/* Create Employee */}
           <div className="col-12 col-md-4">
-            <div className="card h-100 shadow-sm border-primary">
-              <div className="card-body text-center">
-                <h5 className="card-title">Create Employee</h5>
-                <p className="card-text">
-                  Add backdesk or onsite employees with username and credentials.
-                </p>
+            <div className={`${styles.card} border-primary`}>
+              <div className={styles.cardBody}>
+                <h5>Create Employee</h5>
+                <p>Add backdesk or onsite Employees</p>
                 <button
-                  className="btn btn-primary"
+                  className={`${styles.cardBtn} btn-primary`}
                   onClick={() => handleNavigate("/create-employee")}
                 >
                   Go
@@ -38,16 +35,14 @@ function AdminDashboard({ user }) {
             </div>
           </div>
 
-          {/* View Bookings Card */}
+          {/* View Bookings */}
           <div className="col-12 col-md-4">
-            <div className="card h-100 shadow-sm border-success">
-              <div className="card-body text-center">
-                <h5 className="card-title">View Bookings</h5>
-                <p className="card-text">
-                  Check all current bookings and manage .
-                </p>
+            <div className={`${styles.card} border-success`}>
+              <div className={styles.cardBody}>
+                <h5>View Bookings</h5>
+                <p>Check all current bookings and manage efficiently.</p>
                 <button
-                  className="btn btn-success"
+                  className={`${styles.cardBtn} btn-success`}
                   onClick={() => handleNavigate("/bookings")}
                 >
                   Go
@@ -56,16 +51,14 @@ function AdminDashboard({ user }) {
             </div>
           </div>
 
-          {/* Track Collections Card */}
+          {/* Yacht Management */}
           <div className="col-12 col-md-4">
-            <div className="card h-100 shadow-sm border-warning">
-              <div className="card-body text-center">
-                <h5 className="card-title">Yacht Management</h5>
-                <p className="card-text">
-                  Monitor and manage your Yacht's
-                </p>
+            <div className={`${styles.card} border-warning`}>
+              <div className={styles.cardBody}>
+                <h5>Yacht Management</h5>
+                <p>Monitor and manage all your yachts in one place.</p>
                 <button
-                  className="btn btn-warning text-dark"
+                  className={`${styles.cardBtn} btn-warning text-dark`}
                   onClick={() => handleNavigate("/all-yachts")}
                 >
                   Go
@@ -75,8 +68,8 @@ function AdminDashboard({ user }) {
           </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="mt-5 text-center">
+        {/* Quick Actions */}
+        <div className={styles.quickActions}>
           <h5>Quick Actions</h5>
           <div className="d-flex flex-wrap justify-content-center gap-3 mt-3">
             <button
@@ -94,9 +87,6 @@ function AdminDashboard({ user }) {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 }

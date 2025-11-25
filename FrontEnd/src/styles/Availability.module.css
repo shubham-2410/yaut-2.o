@@ -93,12 +93,9 @@
   backdrop-filter: blur(6px);
 }
 
-.capacity-select{
-  max-width: 80px;
-  border-radius: 12px;
-}
+.capacity-select,
 .budget-select {
-  max-width: 110px;
+  max-width: 120px;
   border-radius: 12px;
 }
 

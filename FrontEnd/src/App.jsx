@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import {jwtDecode} from "jwt-decode";
 import axios from "axios";
-
+import "./App.css"; 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 

@@ -5,6 +5,7 @@ import { getAvailabilitySummary } from "../services/operations/availabilityAPI";
 import { useNavigate, useLocation } from "react-router-dom";
 import { generateTextImage } from "../utils/generateTextImage";
 import "./Availability.css";
+// import "../styles/Availability.module.css" //-- same css addded from .//Availability.css but not working
 
 function Availability() {
   const navigate = useNavigate();

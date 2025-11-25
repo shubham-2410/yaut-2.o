@@ -44,6 +44,14 @@ function CreateBooking() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
+  function to12Hour(time) {
+    if (!time) return "";
+    const [h, m] = time.split(":").map(Number);
+    const suffix = h >= 12 ? "PM" : "AM";
+    const hour = ((h + 11) % 12) + 1;
+    return `${hour}:${m.toString().padStart(2, "0")} ${suffix}`;
+  }
+
   //  Fetch yachts
   useEffect(() => {
     const fetchYachts = async () => {

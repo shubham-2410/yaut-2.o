@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; //  import navigate
+import { FiEye, FiEyeOff, FiUser, FiLock } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import { loginAPI } from "../services/operations/authAPI";
+import styles from "../styles/Login.module.css";
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const navigate = useNavigate(); //  setup navigate
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,31 +28,15 @@ function Login({ onLogin }) {
       ) {
         const { employee, token } = response.data;
 
-        console.log(" Login successful:", employee);
-        console.log("🔑 Token:", token);
-
-        // Save token in localStorage
         localStorage.setItem("authToken", token);
-
-        // Update App state
         onLogin({ ...employee, token });
 
-        //  Redirect based on role
-        if (employee.type === "admin") {
-          navigate("/admin");
-        } else if (employee.type === "backdesk") {
-          navigate("/bookings");
-        } else if (employee.type === "onsite") {
-          navigate("/bookings");
-        } else {
-          navigate("/"); // fallback
-        }
+        if (employee.type === "admin") navigate("/admin");
+        else navigate("/bookings");
       } else {
-        console.warn("⚠️ Unexpected response structure:", response.data);
         setError("Login failed. Please try again.");
       }
     } catch (err) {
-      console.error("❌ Login Error:", err);
       setError(err.response?.data?.message || "Login failed. Try again.");
     } finally {
       setLoading(false);
@@ -57,47 +44,61 @@ function Login({ onLogin }) {
   };
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div className="card shadow p-4 w-100" style={{ maxWidth: "400px" }}>
-        <h3 className="text-center mb-4">Login</h3>
-        <form onSubmit={handleSubmit}>
-          {/* Username */}
-          <div className="mb-3">
-            <label htmlFor="username" className="form-label">
-              Username
-            </label>
+    <div className={styles.loginWrapper}>
+      <div className={styles.loginCard}>
+        <h2 className={styles.loginTitle}>Yacht Management</h2>
+
+        <form onSubmit={handleSubmit} className={styles.loginForm}>
+
+          {/* USERNAME */}
+          <div className={styles.inputGroup}>
+            <label>Username</label>
+
+            <span className={styles.leftIcon}>
+              <FiUser size={18} />
+            </span>
+
             <input
               type="text"
-              id="username"
-              className="form-control"
-              placeholder="Enter your username"
+              className={styles.inputField}
+              placeholder="Enter username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
 
-          {/* Password */}
-          <div className="mb-3">
-            <label htmlFor="password" className="form-label">
-              Password
-            </label>
+          {/* PASSWORD */}
+          <div className={styles.inputGroup}>
+            <label>Password</label>
+
+            <span className={styles.leftIcon}>
+              <FiLock size={18} />
+            </span>
+
             <input
-              type="password"
-              id="password"
-              className="form-control"
-              placeholder="Enter your password"
+              type={showPass ? "text" : "password"}
+              className={styles.inputField}
+              placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
               required
             />
+
+            {/* Toggle Eye Icon */}
+            <span
+              className={styles.passwordToggle}
+              onClick={() => setShowPass(!showPass)}
+            >
+              {showPass ? <FiEyeOff size={20} /> : <FiEye size={20} />}
+            </span>
           </div>
 
-          {/* Error Message */}
-          {error && <p className="text-danger text-center">{error}</p>}
+          {error && <p className={styles.errorMsg}>{error}</p>}
 
-          {/* Submit Button */}
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+          <button className={styles.loginButton} disabled={loading}>
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
