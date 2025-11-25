@@ -151,132 +151,132 @@ function CreateBooking() {
   // };
 
   const buildSlotsForYacht = (yacht) => {
-  if (!yacht) {
-    console.log("⛔ No yacht found");
-    return [];
-  }
+    if (!yacht) {
+      console.log("⛔ No yacht found");
+      return [];
+    }
 
-  const sailStart = yacht.sailStartTime;
-  const sailEnd = yacht.sailEndTime;
-  const durationRaw = yacht.slotDurationMinutes || yacht.duration;
-  const specialSlots = yacht.specialSlots || [];
+    const sailStart = yacht.sailStartTime;
+    const sailEnd = yacht.sailEndTime;
+    const durationRaw = yacht.slotDurationMinutes || yacht.duration;
+    const specialSlots = yacht.specialSlots || [];
 
-  console.log("\n============================");
-  console.log("🛥 Generating Slots For Yacht:", yacht.name);
-  console.log("⏳ Sail Start:", sailStart);
-  console.log("⏳ Sail End:", sailEnd);
-  console.log("🕒 Duration:", durationRaw);
-  console.log("⭐ Special Slot Times:", specialSlots);
-  console.log("============================\n");
+    console.log("\n============================");
+    console.log("🛥 Generating Slots For Yacht:", yacht.name);
+    console.log("⏳ Sail Start:", sailStart);
+    console.log("⏳ Sail End:", sailEnd);
+    console.log("🕒 Duration:", durationRaw);
+    console.log("⭐ Special Slot Times:", specialSlots);
+    console.log("============================\n");
 
-  const timeToMin = (t) => {
-    if (!t) return 0;
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m;
-  };
+    const timeToMin = (t) => {
+      if (!t) return 0;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
 
-  const minToTime = (m) => {
-    const h = Math.floor(m / 60);
-    const mm = m % 60;
-    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-  };
+    const minToTime = (m) => {
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    };
 
-  // Convert slot duration
-  let duration = 0;
-  if (typeof durationRaw === "string" && durationRaw.includes(":")) {
-    const [h, m] = durationRaw.split(":").map(Number);
-    duration = h * 60 + (m || 0);
-  } else {
-    duration = Number(durationRaw);
-  }
+    // Convert slot duration
+    let duration = 0;
+    if (typeof durationRaw === "string" && durationRaw.includes(":")) {
+      const [h, m] = durationRaw.split(":").map(Number);
+      duration = h * 60 + (m || 0);
+    } else {
+      duration = Number(durationRaw);
+    }
 
-  const startMin = timeToMin(sailStart);
-  const endMin = timeToMin(sailEnd);
-  const specialMins = specialSlots.map(timeToMin).sort((a, b) => a - b);
+    const startMin = timeToMin(sailStart);
+    const endMin = timeToMin(sailEnd);
+    const specialMins = specialSlots.map(timeToMin).sort((a, b) => a - b);
 
-  // ---------------------------
-  // 🔥 PROCESS SPECIAL SLOTS
-  // ---------------------------
-  const buildProcessedSpecialSlots = (specialStarts, duration) => {
-    let specialBlocks = specialStarts.map((sp) => ({
-      start: sp,
-      end: sp + duration,
-    }));
+    // ---------------------------
+    // 🔥 PROCESS SPECIAL SLOTS
+    // ---------------------------
+    const buildProcessedSpecialSlots = (specialStarts, duration) => {
+      let specialBlocks = specialStarts.map((sp) => ({
+        start: sp,
+        end: sp + duration,
+      }));
 
-    // Sort by start time
-    specialBlocks.sort((a, b) => a.start - b.start);
+      // Sort by start time
+      specialBlocks.sort((a, b) => a.start - b.start);
 
-    const merged = [];
+      const merged = [];
 
-    for (let block of specialBlocks) {
-      const last = merged[merged.length - 1];
+      for (let block of specialBlocks) {
+        const last = merged[merged.length - 1];
 
-      if (!last || block.start >= last.end) {
-        merged.push(block);
+        if (!last || block.start >= last.end) {
+          merged.push(block);
+        } else {
+          // Overlap → split previous and add new
+          last.end = block.start; // cut previous
+          merged.push(block);
+        }
+      }
+
+      return merged;
+    };
+
+    const processedSpecials = buildProcessedSpecialSlots(specialMins, duration);
+
+    // ---------------------------
+    // 🔥 GENERATE NORMAL SLOTS
+    // ---------------------------
+    const slots = [];
+    let cursor = startMin;
+
+    while (cursor < endMin) {
+      const next = cursor + duration;
+
+      // If special slot starts inside this normal block → cut
+      const hit = processedSpecials.find((sp) => sp.start > cursor && sp.start < next);
+
+      if (hit) {
+        // normal cut
+        slots.push({ start: cursor, end: hit.start });
+        cursor = hit.start;
       } else {
-        // Overlap → split previous and add new
-        last.end = block.start; // cut previous
-        merged.push(block);
+        slots.push({ start: cursor, end: Math.min(next, endMin) });
+        cursor = next;
       }
     }
 
-    return merged;
+    // ---------------------------
+    // 🔥 ADD SPECIAL BLOCKS EVEN OUTSIDE SAIL WINDOW
+    // ---------------------------
+    processedSpecials.forEach((sp) => slots.push(sp));
+
+    // ---------------------------
+    // 🔥 REMOVE DUPLICATES & SORT
+    // ---------------------------
+    const seen = new Set();
+    const cleaned = slots.filter((s) => {
+      const key = `${s.start}-${s.end}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    cleaned.sort((a, b) => a.start - b.start);
+
+    // ---------------------------
+    // 🔥 CONVERT TO TIME STRINGS
+    // ---------------------------
+    const finalSlots = cleaned.map((s) => ({
+      start: minToTime(s.start),
+      end: minToTime(s.end),
+    }));
+
+    finalSlots.forEach((s) => console.log(`➡ ${s.start} - ${s.end}`));
+
+    return finalSlots;
   };
-
-  const processedSpecials = buildProcessedSpecialSlots(specialMins, duration);
-
-  // ---------------------------
-  // 🔥 GENERATE NORMAL SLOTS
-  // ---------------------------
-  const slots = [];
-  let cursor = startMin;
-
-  while (cursor < endMin) {
-    const next = cursor + duration;
-
-    // If special slot starts inside this normal block → cut
-    const hit = processedSpecials.find((sp) => sp.start > cursor && sp.start < next);
-
-    if (hit) {
-      // normal cut
-      slots.push({ start: cursor, end: hit.start });
-      cursor = hit.start;
-    } else {
-      slots.push({ start: cursor, end: Math.min(next, endMin) });
-      cursor = next;
-    }
-  }
-
-  // ---------------------------
-  // 🔥 ADD SPECIAL BLOCKS EVEN OUTSIDE SAIL WINDOW
-  // ---------------------------
-  processedSpecials.forEach((sp) => slots.push(sp));
-
-  // ---------------------------
-  // 🔥 REMOVE DUPLICATES & SORT
-  // ---------------------------
-  const seen = new Set();
-  const cleaned = slots.filter((s) => {
-    const key = `${s.start}-${s.end}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  cleaned.sort((a, b) => a.start - b.start);
-
-  // ---------------------------
-  // 🔥 CONVERT TO TIME STRINGS
-  // ---------------------------
-  const finalSlots = cleaned.map((s) => ({
-    start: minToTime(s.start),
-    end: minToTime(s.end),
-  }));
-
-  finalSlots.forEach((s) => console.log(`➡ ${s.start} - ${s.end}`));
-
-  return finalSlots;
-};
 
 
   //  Update startTimeOptions whenever yacht changes
@@ -516,8 +516,8 @@ function CreateBooking() {
             <input
               type="number"
               className={`form-control border text-dark ${isAmountInvalid
-                  ? "border-danger is-invalid"
-                  : "border-dark"
+                ? "border-danger is-invalid"
+                : "border-dark"
                 }`}
               name="totalAmount"
               value={formData.totalAmount}
@@ -558,7 +558,7 @@ function CreateBooking() {
               <option value="">-- Select Start Time --</option>
               {startTimeOptions.map((opt, i) => (
                 <option key={i} value={opt.start}>
-                  {opt.start}
+                  {to12Hour(opt.start)}
                 </option>
               ))}
             </select>
@@ -568,10 +568,10 @@ function CreateBooking() {
           <div className="col-md-4">
             <label className="form-label fw-bold">End Time</label>
             <input
-              type="time"
+              type="text"
               className="form-control border border-dark text-dark"
               name="endTime"
-              value={formData.endTime}
+              value={to12Hour(formData.endTime)}
               readOnly
             />
           </div>

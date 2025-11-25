@@ -34,15 +34,17 @@ export const yachtSchema = z.object({
   sailEndTime: z.string().min(1, "End Time is required"),
   duration: z.string().min(1, "Sail Duration is required"),
   specialSlotTimes: z.preprocess(
-  (value) => {
-    if (!value) return [];
-    try {
-      return JSON.parse(value); // Convert string → array
-    } catch {
-      return [];
-    }
-  },
-  z.array(z.string())
-).optional(),
+    (value) => {
+      if (Array.isArray(value)) return value;
+      if (!value) return [];
+      try {
+        return JSON.parse(value);
+      } catch {
+        return [];
+      }
+    },
+    z.array(z.string())
+  ).optional(),
+
 
 });

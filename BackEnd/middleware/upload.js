@@ -18,26 +18,62 @@ export const upload = multer({ storage });
  * Upload to Cloudinary under a specific folder
  * @param {string} folderName - The Cloudinary folder (e.g., 'yaut/payment')
  */
+// export const uploadToCloudinary = (folderName) => async (req, res, next) => {
+//   console.log("In Upload to Cloud")
+//   if (!req.file) return next();
+//   console.log("File is present")
+//   try {
+//     const stream = cloudinary.uploader.upload_stream(
+//       { folder: folderName }, // ✅ Use passed folder name
+//       (error, result) => {
+//         if (error) return res.status(500).json({ error: "Cloudinary upload failed" });
+
+//         req.cloudinaryUrl = result.secure_url; // Attach URL to request
+//         next();
+//       }
+//     );
+
+//     stream.end(req.file.buffer);
+//   } catch (err) {
+//     return res.status(500).json({ error: err.message });
+//   }
+// };
+
 export const uploadToCloudinary = (folderName) => async (req, res, next) => {
-  console.log("In Upload to Cloud")
-  if (!req.file) return next();
-  console.log("File is present")
+  console.log("In Upload to Cloud");
+
+  if (!req.files || req.files.length === 0) {
+    return next();
+  }
+
   try {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: folderName }, // ✅ Use passed folder name
-      (error, result) => {
-        if (error) return res.status(500).json({ error: "Cloudinary upload failed" });
+    const uploadedUrls = [];
 
-        req.cloudinaryUrl = result.secure_url; // Attach URL to request
-        next();
-      }
-    );
+    for (const file of req.files) {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: folderName },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
 
-    stream.end(req.file.buffer);
+      uploadedUrls.push(result.secure_url);
+    }
+
+    // Attach URLs to req.body
+    req.body.newPhotos = uploadedUrls;
+
+    next();
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error(err);
+    return res.status(500).json({ error: "Cloudinary upload failed" });
   }
 };
+
 
 // Helper function to upload one file and return URL
 export const uploadFileToCloudinaryV2 = (file, folderName) => {

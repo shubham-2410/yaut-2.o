@@ -65,7 +65,7 @@ export const updateYacht = async (req, res, next) => {
     const { newPhotos, ...otherFields } = req.body;
 
     const updateData = { ...otherFields };
-
+    console.log("Here is updated yacht " , updateData)
     // ✅ Add photos to existing array if provided
     if (newPhotos && Array.isArray(newPhotos)) {
       updateData.$push = { yachtPhotos: { $each: newPhotos } };

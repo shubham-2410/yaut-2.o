@@ -16,12 +16,56 @@ const AllYachts = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editFieldErrors, setEditFieldErrors] = useState({});
+  const [editError, setEditError] = useState("");
+
 
   const navigate = useNavigate();
 
+  const SLOT_OPTIONS = [
+    { value: "16:00", label: "4:00 PM - 6:00 PM" },
+    { value: "17:30", label: "5:30 PM - 7:30 PM" },
+    { value: "18:00", label: "6:00 PM - 8:00 PM" },
+  ];
+
+  function to12Hour(time) {
+    if (!time) return "";
+    const [h, m] = time.split(":").map(Number);
+    const suffix = h >= 12 ? "PM" : "AM";
+    const hour = ((h + 11) % 12) + 1;
+    return `${hour}:${m.toString().padStart(2, "0")} ${suffix}`;
+  }
+  // add 2 hours to a time string (HH:mm or 12-hr)
+  const addTwoHoursTo12Hour = (time12) => {
+    const date = new Date(`2024-01-01 ${time12}`);
+    date.setHours(date.getHours() + 2);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+
+
+  function calculateDuration(start, end) {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+
+    let s = sh * 60 + sm;
+    let e = eh * 60 + em;
+
+    if (e < s) e += 24 * 60; // next day
+
+    const diff = e - s;
+    const hrs = Math.floor(diff / 60);
+    const mins = diff % 60;
+
+    return mins === 0 ? `${hrs} hrs` : `${hrs} hrs ${mins} mins`;
+  }
+
   //  Convert ANY FORMAT to minutes for UI display
   const toMinutes = (value) => {
-    if (!value) return 0;
+    if (value === undefined || value === null || value === "") return 0;
 
     if (!isNaN(value)) return Number(value); // already minutes
 
@@ -37,8 +81,9 @@ const AllYachts = () => {
 
   //  Convert minutes to backend HH:MM format
   const minutesToHHMM = (minutes) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
+    const mins = Number(minutes) || 0;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
@@ -69,6 +114,7 @@ const AllYachts = () => {
         }));
 
         setYachts(yachtsWithImages);
+        console.log("Here is all yaut data - ", yachtsWithImages);
       } catch (err) {
         console.error("❌ Error fetching yachts:", err);
         setError(err?.response?.data?.message || "Failed to fetch yachts");
@@ -79,6 +125,37 @@ const AllYachts = () => {
 
     fetchYachts();
   }, []);
+
+  // Validation 
+
+  useEffect(() => {
+    if (!selectedYacht) return;
+
+    const errors = {};
+    const running = Number(selectedYacht.runningCost || 0);
+    const maxSell = Number(selectedYacht.maxSellingPrice || 0);
+    const sell = Number(selectedYacht.sellingPrice || 0);
+
+    if (running && maxSell && maxSell <= running) {
+      errors.maxSellingPrice =
+        "Max selling price must be greater than running cost";
+    }
+
+    if (running && sell && sell < running) {
+      errors.sellingPrice = "Selling price must be ≥ running cost";
+    }
+
+    if (maxSell && sell && sell > maxSell) {
+      errors.sellingPrice = "Selling price must be ≤ max selling price";
+    }
+
+    setEditFieldErrors(errors);
+  }, [
+    selectedYacht?.runningCost,
+    selectedYacht?.maxSellingPrice,
+    selectedYacht?.sellingPrice
+  ]);
+
 
   // ------------------------------------------------------------------
   // 🚮 Delete yacht handler
@@ -91,10 +168,10 @@ const AllYachts = () => {
       await deleteYacht(selectedYacht._id, token);
 
       setYachts((prev) => prev.filter((y) => y._id !== selectedYacht._id));
-      // alert("Yacht deleted successfully!");
+
       toast.success("Yacht deleted successfully!", {
         icon: "🛥️",
-        duration: 3000, // 3 seconds
+        duration: 3000,
         style: {
           borderRadius: "10px",
           background: "#333",
@@ -111,6 +188,26 @@ const AllYachts = () => {
   };
 
   // ------------------------------------------------------------------
+  // Preload specialSlot1 / specialSlot2 from selectedYacht.specialSlotTimes
+  // (do not mutate state inside JSX)
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    // when edit modal opens, set UI-only slot fields if not already set
+    if (showEditModal && selectedYacht) {
+      const slots = selectedYacht.specialSlotTimes || [];
+      // only set if not already present to avoid overwriting user edits
+      if (!selectedYacht.specialSlot1 && !selectedYacht.specialSlot2) {
+        setSelectedYacht((prev) => ({
+          ...selectedYacht,
+          specialSlot1: slots[0] || null,
+          specialSlot2: slots[1] || null,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showEditModal, selectedYacht?._id]);
+
+  // ------------------------------------------------------------------
   // ✏️ Handle edit save (duration goes to backend as HH:MM)
   // ------------------------------------------------------------------
   const handleEditSave = async () => {
@@ -119,23 +216,6 @@ const AllYachts = () => {
     const { runningCost, sellingPrice, maxSellingPrice, name } = selectedYacht;
 
     //  Required field checks
-    // if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
-    //   alert("Please fill all required fields.");
-    //   return;
-    // }
-
-    // //  Validation 1 — Selling Price > Running Cost
-    // if (Number(sellingPrice) <= Number(runningCost)) {
-    //   alert("Selling Price must be greater than Running Cost.");
-    //   return;
-    // }
-
-    // //  Validation 2 — Max Selling Price > Selling Price
-    // if (Number(maxSellingPrice) <= Number(sellingPrice)) {
-    //   alert("Max Selling Price must be greater than Selling Price.");
-    //   return;
-    // }
-    // Validation — required fields
     if (!name || !runningCost || !sellingPrice || !maxSellingPrice) {
       toast.error("Please fill all required fields.", {
         duration: 3000,
@@ -144,7 +224,7 @@ const AllYachts = () => {
       return;
     }
 
-    // Validation 1 — Selling Price > Running Cost
+    //  Validation 1 — Selling Price > Running Cost
     if (Number(sellingPrice) <= Number(runningCost)) {
       toast.error("Selling Price must be greater than Running Cost.", {
         duration: 3000,
@@ -153,7 +233,7 @@ const AllYachts = () => {
       return;
     }
 
-    // Validation 2 — Max Selling Price > Selling Price
+    //  Validation 2 — Max Selling Price > Selling Price
     if (Number(maxSellingPrice) <= Number(sellingPrice)) {
       toast.error("Max Selling Price must be greater than Selling Price.", {
         duration: 3000,
@@ -162,28 +242,49 @@ const AllYachts = () => {
       return;
     }
 
-
     try {
+      setLoading(true);
       const token = localStorage.getItem("authToken");
 
-      const durationMinutes = Number(selectedYacht.duration);
+      // build specialSlotTimes from UI-only fields
+      const specialSlotTimes = [
+        selectedYacht.specialSlot1,
+        selectedYacht.specialSlot2,
+      ].filter(Boolean);
+
+      // ensure duration converted to HH:MM expected by mongoose schema
+      const durationMinutes = Number(selectedYacht.duration) || 0;
       const durationHHMM = minutesToHHMM(durationMinutes);
 
+      // Build payload (do NOT include UI-only keys specialSlot1/specialSlot2)
       const yachtToSave = {
         ...selectedYacht,
         duration: durationHHMM,
+        specialSlotTimes,
       };
+
+      // remove UI-only keys before sending
+      delete yachtToSave.specialSlot1;
+      delete yachtToSave.specialSlot2;
 
       await updateYacht(selectedYacht._id, yachtToSave, token);
 
+      // reflect server-side shape in local state (keep images unchanged)
       setYachts((prev) =>
         prev.map((y) =>
-          y._id === selectedYacht._id ? { ...y, ...yachtToSave } : y
+          y._id === selectedYacht._id
+            ? {
+              ...y,
+              ...yachtToSave,
+              // ensure images not lost if backend returns minimal payload
+              images: y.images || yachtToSave.images || ["/default-yacht.jpg"],
+            }
+            : y
         )
       );
 
       toast.success("Yacht details updated!", {
-        duration: 3000, // duration in ms
+        duration: 3000,
         style: {
           borderRadius: "10px",
           background: "#333",
@@ -259,9 +360,7 @@ const AllYachts = () => {
                   </td>
                   <td className="d-none d-sm-table-cell">
                     <span
-                      className={`badge ${yacht.status === "active"
-                        ? "bg-success"
-                        : "bg-secondary"
+                      className={`badge ${yacht.status === "active" ? "bg-success" : "bg-secondary"
                         }`}
                     >
                       {yacht.status?.charAt(0).toUpperCase() +
@@ -284,7 +383,7 @@ const AllYachts = () => {
                         onClick={() => {
                           setSelectedYacht({
                             ...yacht,
-                            duration: toMinutes(yacht.duration), //  always minutes
+                            duration: toMinutes(yacht.duration), //  always minutes for UI
                           });
                           setShowEditModal(true);
                         }}
@@ -312,89 +411,104 @@ const AllYachts = () => {
       )}
 
       {(showViewModal || showEditModal || showDeleteModal) && (
-        <div
-          className="modal-backdrop fade show"
-          onClick={closeAllModals}
-        ></div>
+        <div className="modal-backdrop fade show" onClick={closeAllModals}></div>
       )}
 
       {/* ------------------------ VIEW MODAL ------------------------ */}
+      {/* ====================== VIEW MODAL ====================== */}
       {showViewModal && selectedYacht && (
         <div className="modal show fade d-block" tabIndex="-1">
           <div className="modal-dialog modal-xl modal-dialog-centered">
             <div className="modal-content shadow-lg">
+
               <div className="modal-header">
                 <h5 className="modal-title fw-bold">{selectedYacht.name}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeAllModals}
-                ></button>
+                <button type="button" className="btn-close" onClick={closeAllModals}></button>
               </div>
+
               <div className="modal-body">
+
                 <div className="row">
-                  {/* DETAILS */}
+
+                  {/* ================== DETAILS ================== */}
                   <div className="col-12 col-lg-6">
                     <ul className="list-group list-group-flush">
+
                       <li className="list-group-item">
                         <strong>Capacity:</strong> {selectedYacht.capacity}
                       </li>
+
+                      {/* DURATION WITH 12-HOUR FORMAT */}
                       <li className="list-group-item">
-                        <strong>Duration:</strong> {selectedYacht.duration}
+                        <strong>Duration:</strong>{" "}
+                        {to12Hour(selectedYacht.sailStartTime)} – {to12Hour(selectedYacht.sailEndTime)}
+                        {" "}({calculateDuration(selectedYacht.sailStartTime, selectedYacht.sailEndTime)})
                       </li>
+
                       <li className="list-group-item">
-                        <strong>Running Cost:</strong> ₹
-                        {selectedYacht.runningCost?.toLocaleString()}
+                        <strong>Running Cost:</strong> ₹{selectedYacht.runningCost?.toLocaleString()}
                       </li>
+
                       <li className="list-group-item">
-                        <strong>MaxSelling Price:</strong> ₹
-                        {selectedYacht?.maxSellingPrice?.toLocaleString() ||
-                          selectedYacht?.price?.toLocaleString()}
+                        <strong>Max Selling Price:</strong> ₹
+                        {selectedYacht?.maxSellingPrice?.toLocaleString()}
                       </li>
+
                       <li className="list-group-item">
                         <strong>Selling Price:</strong> ₹
                         {selectedYacht.sellingPrice?.toLocaleString()}
                       </li>
+
                       <li className="list-group-item">
-                        <strong>Sail Start:</strong>{" "}
-                        {selectedYacht.sailStartTime}
+                        <strong>Sail Start:</strong> {to12Hour(selectedYacht.sailStartTime)}
                       </li>
+
                       <li className="list-group-item">
-                        <strong>Sail End:</strong> {selectedYacht.sailEndTime}
+                        <strong>Sail End:</strong> {to12Hour(selectedYacht.sailEndTime)}
                       </li>
+
                       <li className="list-group-item">
                         <strong>Status:</strong> {selectedYacht.status}
                       </li>
+
+                      {/* SPECIAL SLOTS (from specialSlotTimes array) */}
+                      <li className="list-group-item">
+                        <strong>Special Slots:</strong>
+                        <ul className="mt-2">
+                          {selectedYacht.specialSlotTimes?.length > 0 ? (
+                            selectedYacht.specialSlotTimes.map((slot, idx) => (
+                              <li key={idx}>{to12Hour(slot)} - {addTwoHoursTo12Hour(to12Hour(slot))}
+                              </li>
+                            ))
+                          ) : (
+                            <em className="text-muted">No special slots</em>
+                          )}
+                        </ul>
+                      </li>
+
                     </ul>
                   </div>
 
-                  {/* IMAGES */}
+                  {/* ================== IMAGES ================== */}
                   <div className="col-12 col-lg-6 mt-3 mt-lg-0">
                     {selectedYacht.images?.length > 0 ? (
-                      <div
-                        id="yachtCarousel"
-                        className="carousel slide"
-                        data-bs-ride="carousel"
-                      >
+                      <div id="yachtCarousel" className="carousel slide" data-bs-ride="carousel">
                         <div className="carousel-inner rounded shadow-sm">
                           {selectedYacht.images.map((img, idx) => (
                             <div
                               key={idx}
-                              className={`carousel-item ${idx === 0 ? "active" : ""
-                                }`}
+                              className={`carousel-item ${idx === 0 ? "active" : ""}`}
                             >
                               <img
                                 src={img}
                                 className="d-block w-100 rounded"
                                 alt={`Yacht ${idx}`}
-                                style={{
-                                  maxHeight: "400px",
-                                  objectFit: "cover",
-                                }}
+                                style={{ maxHeight: "400px", objectFit: "cover" }}
                               />
                             </div>
                           ))}
                         </div>
+
                         {selectedYacht.images.length > 1 && (
                           <>
                             <button
@@ -403,21 +517,16 @@ const AllYachts = () => {
                               data-bs-target="#yachtCarousel"
                               data-bs-slide="prev"
                             >
-                              <span
-                                className="carousel-control-prev-icon"
-                                aria-hidden="true"
-                              ></span>
+                              <span className="carousel-control-prev-icon" aria-hidden="true"></span>
                             </button>
+
                             <button
                               className="carousel-control-next"
                               type="button"
                               data-bs-target="#yachtCarousel"
                               data-bs-slide="next"
                             >
-                              <span
-                                className="carousel-control-next-icon"
-                                aria-hidden="true"
-                              ></span>
+                              <span className="carousel-control-next-icon" aria-hidden="true"></span>
                             </button>
                           </>
                         )}
@@ -426,12 +535,15 @@ const AllYachts = () => {
                       <p className="text-muted">No images available.</p>
                     )}
                   </div>
+
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       )}
+
 
       {/* ------------------------ EDIT MODAL ------------------------ */}
       {showEditModal && selectedYacht && (
@@ -440,12 +552,9 @@ const AllYachts = () => {
             <div className="modal-content shadow-lg">
               <div className="modal-header">
                 <h5 className="modal-title">Edit Yacht Details</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeAllModals}
-                ></button>
+                <button type="button" className="btn-close" onClick={closeAllModals}></button>
               </div>
+
               <div className="modal-body">
                 <div className="row g-3">
                   {[
@@ -463,7 +572,6 @@ const AllYachts = () => {
                         {field.replace(/([A-Z])/g, " $1")}
                       </label>
 
-                      {/*  Duration always in MINUTES */}
                       {field === "duration" ? (
                         <input
                           type="number"
@@ -485,21 +593,30 @@ const AllYachts = () => {
                                 ? "time"
                                 : "number"
                           }
-                          className="form-control"
+                          className={`form-control ${editFieldErrors[field] ? "is-invalid" : ""
+                            }`}
                           value={selectedYacht[field] || ""}
                           onChange={(e) =>
-                            setSelectedYacht({
-                              ...selectedYacht,
+                            setSelectedYacht((prev) => ({
+                              ...prev,
                               [field]:
                                 field === "capacity"
                                   ? Number(e.target.value)
                                   : e.target.value,
-                            })
+                            }))
                           }
                         />
                       )}
+
+                      {/* ERROR message same as CreateYacht */}
+                      {editFieldErrors[field] && (
+                        <div className="text-danger small mt-1">
+                          {editFieldErrors[field]}
+                        </div>
+                      )}
                     </div>
                   ))}
+
 
                   {/* Status */}
                   <div className="col-12 col-md-6">
@@ -508,16 +625,66 @@ const AllYachts = () => {
                       className="form-select"
                       value={selectedYacht.status || "active"}
                       onChange={(e) =>
-                        setSelectedYacht({
-                          ...selectedYacht,
-                          status: e.target.value,
-                        })
+                        setSelectedYacht((prev) => ({ ...prev, status: e.target.value }))
                       }
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
+
+                  {/* ---------------- SPECIAL SLOT SECTION ---------------- */}
+                  {/* Note: We preload specialSlot1 & specialSlot2 via useEffect when modal opens */}
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold">Special Slot 1</label>
+                    <select
+                      className="form-select border border-dark"
+                      value={selectedYacht.specialSlot1 || "none"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedYacht((prev) => ({
+                          ...prev,
+                          specialSlot1: val === "none" ? null : val,
+                          specialSlot2: null, // reset S2 if S1 changes
+                        }));
+                      }}
+                    >
+                      <option value="none">None</option>
+                      {SLOT_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <label className="form-label fw-bold">Special Slot 2</label>
+                    <select
+                      className="form-select border border-dark"
+                      value={selectedYacht.specialSlot2 || "none"}
+                      disabled={!selectedYacht.specialSlot1 || selectedYacht.specialSlot1 === "none"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedYacht((prev) => ({
+                          ...prev,
+                          specialSlot2: val === "none" ? null : val,
+                        }));
+                      }}
+                    >
+                      <option value="none">None</option>
+                      {SLOT_OPTIONS.map((o) => (
+                        <option
+                          key={o.value}
+                          value={o.value}
+                          disabled={selectedYacht.specialSlot1 === o.value}
+                        >
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* ---------------- END SPECIAL SLOT SECTION ---------------- */}
                 </div>
               </div>
 
@@ -525,9 +692,15 @@ const AllYachts = () => {
                 <button className="btn btn-secondary" onClick={closeAllModals}>
                   Cancel
                 </button>
-                <button className="btn btn-primary" onClick={handleEditSave}>
+
+                <button
+                  className="btn btn-primary"
+                  onClick={handleEditSave}
+                  disabled={Object.keys(editFieldErrors).length > 0}
+                >
                   Save Changes
                 </button>
+
               </div>
             </div>
           </div>
@@ -549,8 +722,7 @@ const AllYachts = () => {
               </div>
               <div className="modal-body text-center">
                 <p>
-                  Are you sure you want to delete{" "}
-                  <strong>{selectedYacht.name}</strong>?
+                  Are you sure you want to delete <strong>{selectedYacht.name}</strong>?
                 </p>
               </div>
               <div className="modal-footer">
