@@ -8,7 +8,7 @@ function NotFound({user}) {
     <div className="container mt-5 text-center">
       <h1>404 - Page Not Found</h1>
       {!user && <Link to="/" className="btn btn-primary mt-3">
-        Go to Login
+        Go to Login.
       </Link>}
     </div>
   );
