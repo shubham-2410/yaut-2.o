@@ -1,0 +1,17 @@
+# Node.js
+node_modules/
+.env
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
+echo ".wa-session/" >> .gitignore
+
+
+.wa-session/
+.wwebjs_cache/
+.env

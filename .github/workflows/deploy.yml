@@ -1,0 +1,74 @@
+name: Deploy Frontend to cPanel
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      LOCAL_DIR: ./client/dist/
+      SERVER_DIR: /
+      FTP_PORT: 21
+
+    steps:
+      # 📦 Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 🟢 Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # 📥 Install frontend dependencies
+      - name: Install dependencies
+        working-directory: ./client
+        run: npm install
+
+      # 🏗️ Build frontend
+      - name: Build project
+        working-directory: ./client
+        run: npm run build
+
+      # ✅ Verify build output exists
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          if [ ! -d "client/dist" ]; then
+            echo "❌ client/dist does not exist"
+            exit 1
+          fi
+          if [ -z "$(ls -A client/dist)" ]; then
+            echo "❌ client/dist is empty"
+            exit 1
+          fi
+          echo "✅ client/dist exists and has files"
+          ls -la client/dist
+
+      # 🔍 Print deploy values (safe)
+      - name: Print deploy values
+        run: |
+          echo "---- DEPLOY DEBUG ----"
+          echo "LOCAL_DIR  = $LOCAL_DIR"
+          echo "SERVER_DIR = $SERVER_DIR"
+          echo "FTP_PORT   = $FTP_PORT"
+          echo "FTP_SERVER set? -> ${{ secrets.FTP_SERVER != '' }}"
+          echo "FTP_USERNAME set? -> ${{ secrets.FTP_USERNAME != '' }}"
+          echo "FTP_PASSWORD set? -> ${{ secrets.FTP_PASSWORD != '' }}"
+
+      # 🚀 Deploy to cPanel via FTP
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 21
+          local-dir: client/dist/
+          server-dir: /
+          dangerous-clean-slate: true
+          log-level: verbose
